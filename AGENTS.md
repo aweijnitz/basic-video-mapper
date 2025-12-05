@@ -37,6 +37,7 @@ The repo is structured as a C++-oriented monorepo with four main components:
    - Language: **C++17+**.
    - Responsibility: Domain model & logic only. No networking, no rendering, no DB.
    - Knows about: Scenes, Surfaces, Feeds, Layers, Cues, Playback state.
+   - Includes: JSON serialization helpers and validation utilities for IDs and the main entities.
    - Used by: Server and (optionally) headless tools/clients.
 
 2. **Server (`/server`)**
@@ -127,7 +128,8 @@ Examples:
 ### 3.3 Tooling & dependencies
 
 - **JSON**: The `/core` library uses [nlohmann::json](https://github.com/nlohmann/json) for serialization. It is vendored as a
-  single header at `core/third_party/nlohmann/json.hpp` and can be included with `<nlohmann/json.hpp>`.
+  single header at `core/third_party/nlohmann/json.hpp` and can be included with `<nlohmann/json.hpp>`. The serialization module
+  provides the JSON conversions for IDs, enums, and the Feed/Surface/Scene/Cue classes.
 
 ### Build notes
 - The root `CMakeLists.txt` enables testing and pulls in the `/core` subdirectory as part of the default build.
