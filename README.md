@@ -4,7 +4,7 @@ A modular, open-source **projection/video mapping engine** written primarily in 
 
 - Render multiple real-time **video feeds** onto **skewed rectangles/quads/meshes**.
 - Control playback and parameters via **MIDI**, **audio analysis (FFT)**, LFOs, and **remote clients**.
-- Persist **scenes, surfaces, feeds, cues** and configuration in **PostgreSQL**.
+- Persist **scenes, surfaces, feeds, cues** and configuration in an **embedded SQLite3** database file.
 - Use a **client–server model** so the machine connected to the projector can be controlled from other devices.
 
 > 📌 Architecture & conventions for agents and humans are documented in [`AGENTS.md`](./AGENTS.md).  
@@ -24,7 +24,7 @@ The project is a C++-centric monorepo with four main components:
 
 - **`/server` – Server**
   - C++ server built on top of the core library.
-  - Persists state to **PostgreSQL** and manages asset metadata.
+  - Persists state to **SQLite3 (embedded, file-based)** and manages asset metadata.
   - Exposes a **remote API** over TCP/IP for clients.
   - Talks to the Renderer via a local **control protocol** (JSON over TCP in v0).
 
@@ -38,7 +38,7 @@ The project is a C++-centric monorepo with four main components:
   - Talk only to the **server** via its remote API.
   - Used to manage scenes, feeds, surfaces, cues, and playback.
 
-Assets (images, video files, etc.) are stored on the filesystem (e.g. `./data/assets`), while structured state lives in PostgreSQL.
+Assets (images, video files, etc.) are stored on the filesystem (e.g. `./data/assets`), while structured state lives in an embedded SQLite3 database file under `./data/db`.
 
 ### Core library capabilities
 
@@ -76,6 +76,13 @@ graph TD
 
 ---
 
+## Build & runtime prerequisites
+
+- **SQLite3** headers and library on the host (e.g., `libsqlite3-dev` on Debian/Ubuntu or Homebrew `sqlite` on macOS).
+- No external database service is required; the server reads/writes a local file-backed DB at `./data/db/projection.db` by default.
+
+---
+
 ## Repository Layout (Initial)
 
 ```text
@@ -87,7 +94,7 @@ graph TD
 /core/src/...
 /core/tests/...
 
-/server/                   # C++ server using core + PostgreSQL
+/server/                   # C++ server using core + embedded SQLite3
 /server/src/...
 /server/tests/...
 /server/CMakeLists.txt
