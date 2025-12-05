@@ -41,6 +41,34 @@ Assets (images, video files, etc.) are stored on the filesystem (e.g. `./data/as
 
 ---
 
+## Core domain overview
+
+The core library models a few key entities that the server, renderer, and clients share:
+
+- **Feed** – a source of pixels (video file, camera, generated content) with configuration metadata.
+- **Surface** – a quad/mesh on the projector mapped to a particular Feed with blend/opacity controls.
+- **Scene** – a collection of Surfaces configured together for playback.
+- **Cue** – references a Scene and optionally overrides surface parameters (opacity/brightness) when triggered.
+
+```mermaid
+graph TD
+  Feed1[Feed]
+  Surface1[Surface]
+  Surface2[Surface]
+  Scene1[Scene]
+  Cue1[Cue]
+
+  Feed1 --> Surface1
+  Feed1 --> Surface2
+  Surface1 --> Scene1
+  Surface2 --> Scene1
+  Scene1 --> Cue1
+  Cue1 --> Surface1
+  Cue1 --> Surface2
+```
+
+---
+
 ## Repository Layout (Initial)
 
 ```text

@@ -124,6 +124,11 @@ Examples:
 /server/src/db/PostgresConnection.cpp
 /server/tests/db/PostgresConnection_test.cpp
 
+### 3.3 Tooling & dependencies
+
+- **JSON**: The `/core` library uses [nlohmann::json](https://github.com/nlohmann/json) for serialization. It is vendored as a
+  single header at `core/third_party/nlohmann/json.hpp` and can be included with `<nlohmann/json.hpp>`.
+
 ### Build notes
 - The root `CMakeLists.txt` enables testing and pulls in the `/core` subdirectory as part of the default build.
 - The core library target is named `projection_core`; it is built as a C++17 target from `core/src`.
