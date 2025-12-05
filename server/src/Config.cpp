@@ -9,6 +9,8 @@ namespace {
 
 constexpr const char* kDefaultDbPath = "./data/db/projection.db";
 constexpr int kDefaultPort = 8080;
+constexpr const char* kDefaultRendererHost = "127.0.0.1";
+constexpr int kDefaultRendererPort = 5050;
 
 bool startsWith(const std::string& value, const std::string& prefix) {
     return value.rfind(prefix, 0) == 0;
@@ -37,7 +39,7 @@ std::string parseOptionValue(int& index, int argc, char* argv[], const std::stri
 }  // namespace
 
 ServerConfig parseServerConfig(int argc, char* argv[]) {
-    ServerConfig config{kDefaultDbPath, kDefaultPort};
+    ServerConfig config{kDefaultDbPath, kDefaultPort, kDefaultRendererHost, kDefaultRendererPort};
 
     for (int i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
@@ -52,6 +54,17 @@ ServerConfig parseServerConfig(int argc, char* argv[]) {
             config.httpPort = parsePort(parseOptionValue(i, argc, argv, "--port"));
         } else if (startsWith(arg, "--port=")) {
             config.httpPort = parsePort(arg.substr(7));
+        } else if (arg == "--renderer-host") {
+            config.rendererHost = parseOptionValue(i, argc, argv, "--renderer-host");
+        } else if (startsWith(arg, "--renderer-host=")) {
+            config.rendererHost = arg.substr(16);
+            if (config.rendererHost.empty()) {
+                throw std::invalid_argument("Missing value for --renderer-host");
+            }
+        } else if (arg == "--renderer-port") {
+            config.rendererPort = parsePort(parseOptionValue(i, argc, argv, "--renderer-port"));
+        } else if (startsWith(arg, "--renderer-port=")) {
+            config.rendererPort = parsePort(arg.substr(16));
         } else {
             throw std::invalid_argument("Unknown argument: " + arg);
         }

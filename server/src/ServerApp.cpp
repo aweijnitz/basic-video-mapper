@@ -9,6 +9,7 @@
 #include "http/HttpServer.h"
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
+#include "renderer/RendererClient.h"
 
 namespace projection::server {
 
@@ -34,6 +35,11 @@ int ServerApp::run() {
         httpServer_ = std::make_unique<http::HttpServer>(*feedRepository_, *sceneRepository_);
         std::cout << "HTTP server listening on port " << config_.httpPort << std::endl;
         httpServer_->start(config_.httpPort);
+
+        rendererClient_ = std::make_unique<renderer::RendererClient>(config_.rendererHost, config_.rendererPort);
+        rendererClient_->connect();
+        std::cout << "Connected to renderer at " << config_.rendererHost << ":" << config_.rendererPort
+                  << std::endl;
     } catch (const std::exception& ex) {
         std::cerr << "Failed to start server: " << ex.what() << std::endl;
         return 1;

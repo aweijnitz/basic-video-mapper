@@ -16,11 +16,17 @@ namespace projection::server::http {
 class HttpServer;
 }
 
+namespace projection::server::renderer {
+class RendererClient;
+}
+
 namespace projection::server {
 
 struct ServerConfig {
     std::string databasePath;
     int httpPort;
+    std::string rendererHost;
+    int rendererPort;
 };
 
 class ServerApp {
@@ -38,6 +44,7 @@ private:
     std::unique_ptr<repo::FeedRepository> feedRepository_;
     std::unique_ptr<repo::SceneRepository> sceneRepository_;
     std::unique_ptr<http::HttpServer> httpServer_;
+    std::unique_ptr<renderer::RendererClient> rendererClient_;
 };
 
 }  // namespace projection::server
