@@ -81,6 +81,36 @@ graph TD
 - **SQLite3** headers and library on the host (e.g., `libsqlite3-dev` on Debian/Ubuntu or Homebrew `sqlite` on macOS).
 - No external database service is required; the server reads/writes a local file-backed DB at `./data/db/projection.db` by default.
 
+## Build & Run
+
+```bash
+# Configure and build from the repository root
+cmake -S . -B .
+cmake --build .
+
+# Start the server with explicit configuration
+./server/projection_server --db ./data/db/projection.db --port 8080
+```
+
+- The server uses an embedded **SQLite3** database file and will create the DB on first run if it does not already exist.
+- Configuration is provided via command-line flags: `--db <path>` for the SQLite file location and `--port <port>` for the HTTP listener.
+
+Example API calls (HTTP+JSON):
+
+```bash
+curl -X POST http://localhost:8080/feeds \
+  -H "Content-Type: application/json" \
+  -d '{"id":"feed-1","name":"Camera","type":"Camera","configJson":"{}"}'
+
+curl http://localhost:8080/feeds
+
+curl -X POST http://localhost:8080/scenes \
+  -H "Content-Type: application/json" \
+  -d '{"id":"scene-1","name":"Main","description":"Example scene","surfaces":[]}'
+
+curl http://localhost:8080/scenes
+```
+
 ---
 
 ## Repository Layout (Initial)

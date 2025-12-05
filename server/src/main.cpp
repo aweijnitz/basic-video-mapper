@@ -1,14 +1,11 @@
+#include "Config.h"
 #include "ServerApp.h"
 
 #include <iostream>
 
-int main() {
-    projection::server::ServerConfig config{
-        .databasePath = "./data/db/projection.db",
-        .httpPort = 8080,
-    };
-
+int main(int argc, char* argv[]) {
     try {
+        auto config = projection::server::parseServerConfig(argc, argv);
         projection::server::ServerApp app(config);
         return app.run();
     } catch (const std::exception& ex) {
