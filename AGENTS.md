@@ -123,3 +123,9 @@ Examples:
 
 /server/src/db/PostgresConnection.cpp
 /server/tests/db/PostgresConnection_test.cpp
+
+### Build notes
+- The root `CMakeLists.txt` enables testing and pulls in the `/core` subdirectory as part of the default build.
+- The core library target is named `projection_core`; it is built as a C++17 target from `core/src`.
+- Catch2 is provided locally under `core/third_party/catch2` (lightweight harness plus `Catch2WithMain` target) for unit tests, and the test
+  executable is registered with `add_test` for ctest integration.
