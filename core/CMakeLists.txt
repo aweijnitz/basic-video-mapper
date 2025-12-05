@@ -18,6 +18,8 @@ add_library(projection_core
     ${CORE_SOURCE_DIR}/projection/core/Scene.h
     ${CORE_SOURCE_DIR}/projection/core/Cue.cpp
     ${CORE_SOURCE_DIR}/projection/core/Cue.h
+    ${CORE_SOURCE_DIR}/projection/core/Validation.cpp
+    ${CORE_SOURCE_DIR}/projection/core/Validation.h
 )
 
 target_include_directories(projection_core
@@ -58,6 +60,7 @@ add_executable(projection_core_tests
     tests/IdsEnums_test.cpp
     tests/FeedSceneSurfaceCue_test.cpp
     tests/Serialization_test.cpp
+    tests/Validation_test.cpp
 )
 
 target_compile_features(projection_core_tests PRIVATE cxx_std_17)
