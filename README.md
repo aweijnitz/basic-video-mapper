@@ -19,6 +19,7 @@ The project is a C++-centric monorepo with four main components:
 - **`/core` – Core Library**
   - Pure C++ domain model and logic.
   - Knows about: Scenes, Surfaces, Feeds, Cues, Layers, Playback state.
+  - Provides JSON serialization (via nlohmann::json) and validation helpers for the domain entities.
   - No rendering, DB, or networking dependencies.
 
 - **`/server` – Server**
@@ -39,6 +40,12 @@ The project is a C++-centric monorepo with four main components:
 
 Assets (images, video files, etc.) are stored on the filesystem (e.g. `./data/assets`), while structured state lives in PostgreSQL.
 
+### Core library capabilities
+
+- Domain classes for IDs/enums plus Feed, Surface, Scene, and Cue.
+- JSON serialization/deserialization for the main entities and helper types.
+- Validation helpers to confirm references between surfaces, feeds, scenes, and cues.
+
 ---
 
 ## Core domain overview
@@ -58,11 +65,11 @@ graph TD
   Scene1[Scene]
   Cue1[Cue]
 
-  Feed1 --> Surface1
-  Feed1 --> Surface2
-  Surface1 --> Scene1
-  Surface2 --> Scene1
-  Scene1 --> Cue1
+  Surface1 --> Feed1
+  Surface2 --> Feed1
+  Scene1 --> Surface1
+  Scene1 --> Surface2
+  Cue1 --> Scene1
   Cue1 --> Surface1
   Cue1 --> Surface2
 ```
