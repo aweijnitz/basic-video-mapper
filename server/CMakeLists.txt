@@ -30,6 +30,8 @@ add_library(projection_server_lib
     ${SERVER_SOURCE_DIR}/db/SchemaMigrations.h
     ${SERVER_SOURCE_DIR}/http/HttpServer.cpp
     ${SERVER_SOURCE_DIR}/http/HttpServer.h
+    ${SERVER_SOURCE_DIR}/renderer/RendererClient.cpp
+    ${SERVER_SOURCE_DIR}/renderer/RendererClient.h
     ${SERVER_SOURCE_DIR}/repo/FeedRepository.cpp
     ${SERVER_SOURCE_DIR}/repo/FeedRepository.h
     ${SERVER_SOURCE_DIR}/repo/SceneRepository.cpp
@@ -82,6 +84,7 @@ add_executable(projection_server_tests
     tests/Db_test.cpp
     tests/Repository_test.cpp
     tests/HttpApi_test.cpp
+    tests/RendererClient_test.cpp
 )
 
 target_compile_features(projection_server_tests PRIVATE cxx_std_17)
