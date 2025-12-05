@@ -20,6 +20,8 @@ endif()
 set(SERVER_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_library(projection_server_lib
+    ${SERVER_SOURCE_DIR}/Config.cpp
+    ${SERVER_SOURCE_DIR}/Config.h
     ${SERVER_SOURCE_DIR}/ServerApp.cpp
     ${SERVER_SOURCE_DIR}/ServerApp.h
     ${SERVER_SOURCE_DIR}/db/SqliteConnection.cpp
@@ -75,6 +77,7 @@ target_link_libraries(projection_server
 )
 
 add_executable(projection_server_tests
+    tests/Config_test.cpp
     tests/ServerApp_test.cpp
     tests/Db_test.cpp
     tests/Repository_test.cpp

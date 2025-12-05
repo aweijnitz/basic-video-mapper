@@ -48,6 +48,9 @@ The repo is structured as a C++-oriented monorepo with four main components:
      - Expose a **remote API** over TCP/IP to clients.
      - Coordinate with the **Renderer** process to apply changes & control playback.
    - The **server machine is physically connected to the projector** (via the Renderer).
+   - The server exposes a minimal **HTTP+JSON** API with `/feeds` and `/scenes` endpoints for CRUD-style interactions.
+   - Persistence is handled through the DB module (e.g., `db::SqliteConnection`, `db::SchemaMigrations`) and repository layer.
+   - HTTP transport is implemented with the vendored single-header **cpp-httplib** server (`server/third_party/httplib.h`) inside the `http::HttpServer` wrapper.
 
 3. **Renderer (`/renderer`)**
    - Language: **C++** using **openFrameworks** + addons (e.g. `ofxPiMapper`, `ofxMidi`, `ofxFft`).
@@ -133,6 +136,10 @@ Examples:
   provides the JSON conversions for IDs, enums, and the Feed/Surface/Scene/Cue classes.
 - **HTTP**: The server uses the single-header [cpp-httplib](https://github.com/yhirose/cpp-httplib) library vendored at
   `server/third_party/httplib.h`.
+
+## 4. Non-Functional Requirements
+
+- Server code must include tests covering the DB layer, repository layer, and HTTP API handlers.
 
 ### Build notes
 - The root `CMakeLists.txt` enables testing and pulls in the `/core` and `/server` subdirectories as part of the default build.
