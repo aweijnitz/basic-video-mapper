@@ -131,6 +131,8 @@ Examples:
 - **JSON**: The `/core` library uses [nlohmann::json](https://github.com/nlohmann/json) for serialization. It is vendored as a
   single header at `core/third_party/nlohmann/json.hpp` and can be included with `<nlohmann/json.hpp>`. The serialization module
   provides the JSON conversions for IDs, enums, and the Feed/Surface/Scene/Cue classes.
+- **HTTP**: The server uses the single-header [cpp-httplib](https://github.com/yhirose/cpp-httplib) library vendored at
+  `server/third_party/httplib.h`.
 
 ### Build notes
 - The root `CMakeLists.txt` enables testing and pulls in the `/core` and `/server` subdirectories as part of the default build.
