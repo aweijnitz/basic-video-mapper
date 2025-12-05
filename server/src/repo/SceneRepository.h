@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 
 #include "db/SqliteConnection.h"
 #include "projection/core/Scene.h"
@@ -16,6 +17,10 @@ public:
     core::Scene createScene(const core::Scene& scene);
 
     std::vector<core::Scene> listScenes();
+
+    std::optional<core::Scene> findSceneById(const core::SceneId& sceneId);
+
+    bool sceneExists(const core::SceneId& sceneId);
 
 private:
     db::SqliteConnection& connection_;

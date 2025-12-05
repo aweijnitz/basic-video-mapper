@@ -111,6 +111,41 @@ curl -X POST http://localhost:8080/scenes \
 curl http://localhost:8080/scenes
 ```
 
+### Renderer integration (Milestone 3)
+
+Two long-running processes now work together: the **server** (`projection_server`) and the **renderer** (`projection_renderer`).
+
+- **Default ports**: HTTP API on **8080**; renderer TCP control on **5050**.
+- **Start the renderer** (in a separate terminal):
+
+  ```bash
+  ./renderer/projection_renderer --port 5050
+  ```
+
+- **Start the server** and point it at the renderer:
+
+  ```bash
+  ./server/projection_server \
+    --db ./data/db/projection.db \
+    --port 8080 \
+    --renderer-host 127.0.0.1 \
+    --renderer-port 5050
+  ```
+
+Example renderer control calls:
+
+```bash
+# Ping the renderer (server sends hello/ack handshake)
+curl -X POST http://localhost:8080/renderer/ping
+
+# Load a scene that already exists in the server DB
+curl -X POST http://localhost:8080/renderer/loadScene \
+  -H "Content-Type: application/json" \
+  -d '{"sceneId":"1"}'
+```
+
+For now, the renderer displays a simple visual and shows the last `sceneId` it was instructed to load via the control protocol.
+
 ---
 
 ## Repository Layout (Initial)

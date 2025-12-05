@@ -84,6 +84,7 @@ add_executable(projection_server_tests
     tests/Db_test.cpp
     tests/Repository_test.cpp
     tests/HttpApi_test.cpp
+    tests/HttpRendererIntegration_test.cpp
     tests/RendererClient_test.cpp
 )
 
