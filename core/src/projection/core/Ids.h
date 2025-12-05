@@ -12,6 +12,7 @@ struct SceneId {
 
   bool operator==(const SceneId& other) const { return value == other.value; }
   bool operator!=(const SceneId& other) const { return !(*this == other); }
+  bool operator<(const SceneId& other) const { return value < other.value; }
 };
 
 struct SurfaceId {
@@ -21,6 +22,7 @@ struct SurfaceId {
 
   bool operator==(const SurfaceId& other) const { return value == other.value; }
   bool operator!=(const SurfaceId& other) const { return !(*this == other); }
+  bool operator<(const SurfaceId& other) const { return value < other.value; }
 };
 
 struct FeedId {
@@ -30,6 +32,7 @@ struct FeedId {
 
   bool operator==(const FeedId& other) const { return value == other.value; }
   bool operator!=(const FeedId& other) const { return !(*this == other); }
+  bool operator<(const FeedId& other) const { return value < other.value; }
 };
 
 struct CueId {
@@ -39,6 +42,7 @@ struct CueId {
 
   bool operator==(const CueId& other) const { return value == other.value; }
   bool operator!=(const CueId& other) const { return !(*this == other); }
+  bool operator<(const CueId& other) const { return value < other.value; }
 };
 
 inline SceneId makeSceneId(const std::string& raw) { return SceneId(raw); }

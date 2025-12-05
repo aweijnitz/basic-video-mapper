@@ -8,6 +8,14 @@ add_library(projection_core
     ${CORE_SOURCE_DIR}/projection/core/CoreInit.cpp
     ${CORE_SOURCE_DIR}/projection/core/Ids.h
     ${CORE_SOURCE_DIR}/projection/core/Enums.h
+    ${CORE_SOURCE_DIR}/projection/core/Feed.cpp
+    ${CORE_SOURCE_DIR}/projection/core/Feed.h
+    ${CORE_SOURCE_DIR}/projection/core/Surface.cpp
+    ${CORE_SOURCE_DIR}/projection/core/Surface.h
+    ${CORE_SOURCE_DIR}/projection/core/Scene.cpp
+    ${CORE_SOURCE_DIR}/projection/core/Scene.h
+    ${CORE_SOURCE_DIR}/projection/core/Cue.cpp
+    ${CORE_SOURCE_DIR}/projection/core/Cue.h
 )
 
 target_include_directories(projection_core
@@ -45,6 +53,7 @@ add_library(Catch2::Catch2WithMain ALIAS Catch2WithMain)
 add_executable(projection_core_tests
     tests/CoreInit_test.cpp
     tests/IdsEnums_test.cpp
+    tests/FeedSceneSurfaceCue_test.cpp
 )
 
 target_compile_features(projection_core_tests PRIVATE cxx_std_17)

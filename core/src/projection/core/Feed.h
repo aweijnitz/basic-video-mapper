@@ -1,0 +1,34 @@
+#pragma once
+
+#include <string>
+
+#include "projection/core/Enums.h"
+#include "projection/core/Ids.h"
+
+namespace projection::core {
+
+class Feed {
+ public:
+  Feed() = default;
+  Feed(FeedId id, std::string name, FeedType type, std::string configJson);
+
+  const FeedId& getId() const { return id_; }
+  void setId(const FeedId& id) { id_ = id; }
+
+  const std::string& getName() const { return name_; }
+  void setName(const std::string& name) { name_ = name; }
+
+  FeedType getType() const { return type_; }
+  void setType(FeedType type) { type_ = type; }
+
+  const std::string& getConfigJson() const { return configJson_; }
+  void setConfigJson(const std::string& json) { configJson_ = json; }
+
+ private:
+  FeedId id_{};
+  std::string name_{};
+  FeedType type_{FeedType::VideoFile};
+  std::string configJson_{};
+};
+
+}  // namespace projection::core
