@@ -1,27 +1,18 @@
-#include "db/SchemaMigrations.h"
-#include "db/SqliteConnection.h"
+#include "ServerApp.h"
 
 #include <iostream>
-#include <string>
 
-using projection::server::db::SchemaMigrations;
-using projection::server::db::SqliteConnection;
-
-int main(int argc, char** argv) {
-    std::string dbPath = projection::server::db::kDefaultDbPath;
-    if (argc > 1) {
-        dbPath = argv[1];
-    }
+int main() {
+    projection::server::ServerConfig config{
+        .databasePath = "./data/db/projection.db",
+        .httpPort = 8080,
+    };
 
     try {
-        SqliteConnection connection(dbPath);
-        connection.open();
-        SchemaMigrations migrations;
-        migrations.apply(connection);
-        std::cout << "SQLite database ready at " << dbPath << std::endl;
-        return 0;
+        projection::server::ServerApp app(config);
+        return app.run();
     } catch (const std::exception& ex) {
-        std::cerr << "Failed to initialize database: " << ex.what() << std::endl;
+        std::cerr << "Server failed to start: " << ex.what() << std::endl;
         return 1;
     }
 }
