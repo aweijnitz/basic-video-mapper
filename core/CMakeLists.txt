@@ -6,6 +6,8 @@ set(CORE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 add_library(projection_core
     ${CORE_SOURCE_DIR}/projection/core/CoreInit.cpp
+    ${CORE_SOURCE_DIR}/projection/core/Ids.h
+    ${CORE_SOURCE_DIR}/projection/core/Enums.h
 )
 
 target_include_directories(projection_core
@@ -42,6 +44,7 @@ add_library(Catch2::Catch2WithMain ALIAS Catch2WithMain)
 
 add_executable(projection_core_tests
     tests/CoreInit_test.cpp
+    tests/IdsEnums_test.cpp
 )
 
 target_compile_features(projection_core_tests PRIVATE cxx_std_17)
