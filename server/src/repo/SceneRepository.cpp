@@ -120,4 +120,46 @@ std::vector<core::Scene> SceneRepository::listScenes() {
     return scenes;
 }
 
+std::optional<core::Scene> SceneRepository::findSceneById(const core::SceneId& sceneId) {
+    sqlite3* handle = connection_.getHandle();
+    if (handle == nullptr) {
+        throw std::runtime_error("SQLite connection is not open");
+    }
+
+    const char* sql = "SELECT id, name, description FROM scenes WHERE id = ? LIMIT 1;";
+    sqlite3_stmt* stmt = nullptr;
+    int result = sqlite3_prepare_v2(handle, sql, -1, &stmt, nullptr);
+    if (result != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare scene select statement: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    long long idValue = parseId(sceneId);
+    result = sqlite3_bind_int64(stmt, 1, idValue);
+    if (result != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to bind scene id: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    result = sqlite3_step(stmt);
+    if (result == SQLITE_ROW) {
+        const unsigned char* nameText = sqlite3_column_text(stmt, 1);
+        const unsigned char* descText = sqlite3_column_text(stmt, 2);
+
+        std::string name = nameText ? reinterpret_cast<const char*>(nameText) : "";
+        std::string description = descText ? reinterpret_cast<const char*>(descText) : "";
+        sqlite3_finalize(stmt);
+        return core::Scene(sceneId, name, description, {});
+    }
+
+    if (result != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to read scene: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    sqlite3_finalize(stmt);
+    return std::nullopt;
+}
+
+bool SceneRepository::sceneExists(const core::SceneId& sceneId) { return findSceneById(sceneId).has_value(); }
+
 }  // namespace projection::server::repo

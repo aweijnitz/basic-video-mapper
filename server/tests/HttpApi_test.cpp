@@ -48,7 +48,7 @@ struct TestServerContext {
     http::HttpServer httpServer;
 
     explicit TestServerContext(const std::string& dbPath)
-        : feedRepo(connection), sceneRepo(connection), httpServer(feedRepo, sceneRepo) {
+        : feedRepo(connection), sceneRepo(connection), httpServer(feedRepo, sceneRepo, nullptr) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }

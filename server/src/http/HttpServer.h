@@ -5,12 +5,14 @@
 
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
+#include "renderer/RendererClient.h"
 
 namespace projection::server::http {
 
 class HttpServer {
 public:
-    HttpServer(repo::FeedRepository& feedRepository, repo::SceneRepository& sceneRepository);
+    HttpServer(repo::FeedRepository& feedRepository, repo::SceneRepository& sceneRepository,
+               std::shared_ptr<renderer::RendererClient> rendererClient = nullptr);
 
     // Starts listening on the provided port. This call blocks until stop() is invoked
     // from another thread.
@@ -25,8 +27,11 @@ private:
     void registerRoutes();
     void respondWithError(::httplib::Response& res, int status, const std::string& message);
 
+    std::string generateCommandId() const;
+
     repo::FeedRepository& feedRepository_;
     repo::SceneRepository& sceneRepository_;
+    std::shared_ptr<renderer::RendererClient> rendererClient_;
     std::unique_ptr<::httplib::Server> server_;
 };
 

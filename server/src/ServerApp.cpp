@@ -31,15 +31,15 @@ int ServerApp::run() {
         feedRepository_ = std::make_unique<repo::FeedRepository>(*connection_);
         sceneRepository_ = std::make_unique<repo::SceneRepository>(*connection_);
 
-        std::cout << "Database initialized at '" << dbPath.string() << "'" << std::endl;
-        httpServer_ = std::make_unique<http::HttpServer>(*feedRepository_, *sceneRepository_);
-        std::cout << "HTTP server listening on port " << config_.httpPort << std::endl;
-        httpServer_->start(config_.httpPort);
-
-        rendererClient_ = std::make_unique<renderer::RendererClient>(config_.rendererHost, config_.rendererPort);
+        rendererClient_ = std::make_shared<renderer::RendererClient>(config_.rendererHost, config_.rendererPort);
         rendererClient_->connect();
         std::cout << "Connected to renderer at " << config_.rendererHost << ":" << config_.rendererPort
                   << std::endl;
+
+        httpServer_ = std::make_unique<http::HttpServer>(*feedRepository_, *sceneRepository_, rendererClient_);
+        std::cout << "Database initialized at '" << dbPath.string() << "'" << std::endl;
+        std::cout << "HTTP server listening on port " << config_.httpPort << std::endl;
+        httpServer_->start(config_.httpPort);
     } catch (const std::exception& ex) {
         std::cerr << "Failed to start server: " << ex.what() << std::endl;
         return 1;
