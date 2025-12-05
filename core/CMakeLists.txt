@@ -10,6 +10,8 @@ add_library(projection_core
     ${CORE_SOURCE_DIR}/projection/core/Enums.h
     ${CORE_SOURCE_DIR}/projection/core/Feed.cpp
     ${CORE_SOURCE_DIR}/projection/core/Feed.h
+    ${CORE_SOURCE_DIR}/projection/core/Serialization.cpp
+    ${CORE_SOURCE_DIR}/projection/core/Serialization.h
     ${CORE_SOURCE_DIR}/projection/core/Surface.cpp
     ${CORE_SOURCE_DIR}/projection/core/Surface.h
     ${CORE_SOURCE_DIR}/projection/core/Scene.cpp
@@ -21,6 +23,7 @@ add_library(projection_core
 target_include_directories(projection_core
     PUBLIC
         ${CORE_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 target_compile_features(projection_core PUBLIC cxx_std_17)
@@ -54,6 +57,7 @@ add_executable(projection_core_tests
     tests/CoreInit_test.cpp
     tests/IdsEnums_test.cpp
     tests/FeedSceneSurfaceCue_test.cpp
+    tests/Serialization_test.cpp
 )
 
 target_compile_features(projection_core_tests PRIVATE cxx_std_17)
