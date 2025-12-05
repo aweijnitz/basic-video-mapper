@@ -1,21 +1,21 @@
 # AGENTS.md
 
-> **Purpose:**  
-> This document explains the architecture, conventions, and rules for agents and humans contributing to this project.  
+> **Purpose:**
+> This document explains the architecture, conventions, and rules for agents and humans contributing to this project.
 > **Rule 0:** If you change architecture, folder structure, or protocols, update this file in the same PR.
 
 ---
 
 ## 1. Project Summary
 
-**Working name:** `projection-mapper`  
+**Working name:** `projection-mapper`
 
 This project is a **projection/video mapping engine** that:
 
 - Runs on **Raspberry Pi** and **macOS**.
 - Renders multiple video/graphics feeds onto skewed surfaces (rectangles, quads, meshes) in real time on a **projector**.
 - Is **interactive**, driven by **MIDI**, **audio analysis (FFT)**, LFOs, and remote control via **client/server APIs**.
-- Persists scenes, cues, and configuration in a **PostgreSQL** database and stores media assets on the filesystem.
+- Persists scenes, cues, and configuration in an **embedded SQLite3** database file and stores media assets on the filesystem.
 
 High-level goals:
 
@@ -24,7 +24,7 @@ High-level goals:
 - One or more **C++ clients** (CLI, UI, etc.) using that API.
 - A **C++ rendering engine** that connects to the projector and executes scenes in real time.
 
-> **Language policy:**  
+> **Language policy:**
 > Where pragmatic, **use C++** for all components (core, server, renderer, baseline clients). Other languages may be added later, but C++ is the default and must remain a first-class citizen.
 
 ---
@@ -43,7 +43,7 @@ The repo is structured as a C++-oriented monorepo with four main components:
 2. **Server (`/server`)**
    - Language: **C++17+**.
    - Uses the core library to:
-     - Persist state in **PostgreSQL**.
+     - Persist state in an **embedded SQLite3** database file (default path: `./data/db/projection.db`).
      - Manage asset metadata (files are stored on the host filesystem).
      - Expose a **remote API** over TCP/IP to clients.
      - Coordinate with the **Renderer** process to apply changes & control playback.
@@ -70,8 +70,8 @@ The repo is structured as a C++-oriented monorepo with four main components:
   - CRUD operations on Scenes, Surfaces, Feeds, Cues.
   - Playback control: `play`, `pause`, `gotoCue`, etc.
 
-- **Server → PostgreSQL & Assets**
-  - Persists domain state in PostgreSQL.
+- **Server → SQLite3 & Assets**
+  - Persists domain state in an embedded SQLite3 database file on local disk.
   - Associates logical feeds with asset paths on disk.
 
 - **Server → Renderer**
@@ -101,10 +101,10 @@ The repo is structured as a C++-oriented monorepo with four main components:
     - macOS (desktop).
     - Raspberry Pi (Linux/ARM).
 
-- **PostgreSQL**
-  - Version: **PostgreSQL 14+** (exact version will be pinned in deployment configs).
-  - Access library (C++): **TBD** (candidates: `libpqxx`, custom wrapper over `libpq`, etc.).
-  - All DB access must be encapsulated behind a clear repository/DAO layer.
+- **SQLite3**
+  - Embedded, file-based database. Default location: `./data/db/projection.db` (relative to the server working directory).
+  - Access library (C++): system `sqlite3` C API (no heavy ORM). Only the **server** component may include `sqlite3.h`.
+  - All DB access must be encapsulated behind a clear repository/DAO layer in `/server`.
 
 ### 3.2 Testing
 
@@ -122,8 +122,9 @@ Examples:
 /core/src/scene/Scene.cpp
 /core/tests/scene/Scene_test.cpp
 
-/server/src/db/PostgresConnection.cpp
-/server/tests/db/PostgresConnection_test.cpp
+/server/src/db/SqliteConnection.cpp
+/server/tests/db/SqliteConnection_test.cpp
+```
 
 ### 3.3 Tooling & dependencies
 
@@ -132,7 +133,17 @@ Examples:
   provides the JSON conversions for IDs, enums, and the Feed/Surface/Scene/Cue classes.
 
 ### Build notes
-- The root `CMakeLists.txt` enables testing and pulls in the `/core` subdirectory as part of the default build.
+- The root `CMakeLists.txt` enables testing and pulls in the `/core` and `/server` subdirectories as part of the default build.
 - The core library target is named `projection_core`; it is built as a C++17 target from `core/src`.
-- Catch2 is provided locally under `core/third_party/catch2` (lightweight harness plus `Catch2WithMain` target) for unit tests, and the test
-  executable is registered with `add_test` for ctest integration.
+- Catch2 is provided locally under `core/third_party/catch2` (lightweight harness plus `Catch2WithMain` target) for unit tests,
+  and the test executable is registered with `add_test` for ctest integration.
+- Server builds must link against the system SQLite3 library and use the embedded DB file; no external DB service/container is expected.
+
+### Dockerization notes
+- Single container for the server that includes SQLite3 client library and runtime. No separate DB service is required.
+- Mount `/data/db` (or `./data/db` relative to the repo) as a volume so the SQLite3 file (default `projection.db`) persists across runs.
+- Expose the server’s remote API port; renderer and clients connect over the network, but DB access stays in-process.
+
+### Open questions / TODOs
+- Schema evolution for SQLite3: migrations tracked via a schema version table under `/server`.
+- Validate performance on Raspberry Pi with the embedded DB file (consider WAL mode if needed in the future).
