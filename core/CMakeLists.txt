@@ -10,6 +10,8 @@ add_library(projection_core
     ${CORE_SOURCE_DIR}/projection/core/Enums.h
     ${CORE_SOURCE_DIR}/projection/core/Feed.cpp
     ${CORE_SOURCE_DIR}/projection/core/Feed.h
+    ${CORE_SOURCE_DIR}/projection/core/RendererProtocol.cpp
+    ${CORE_SOURCE_DIR}/projection/core/RendererProtocol.h
     ${CORE_SOURCE_DIR}/projection/core/Serialization.cpp
     ${CORE_SOURCE_DIR}/projection/core/Serialization.h
     ${CORE_SOURCE_DIR}/projection/core/Surface.cpp
@@ -60,6 +62,7 @@ add_executable(projection_core_tests
     tests/IdsEnums_test.cpp
     tests/FeedSceneSurfaceCue_test.cpp
     tests/Serialization_test.cpp
+    tests/RendererProtocol_test.cpp
     tests/Validation_test.cpp
 )
 
