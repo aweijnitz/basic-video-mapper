@@ -8,6 +8,29 @@
 
 static constexpr int OF_WINDOW = 0;
 
+enum ofLoopType { OF_LOOP_NONE = 0, OF_LOOP_NORMAL };
+
+class ofVideoPlayer {
+ public:
+  bool load(const std::string& filePath) {
+    loadedPath_ = filePath;
+    return true;
+  }
+
+  void setLoopState(ofLoopType /*type*/) {}
+  void play() { playing_ = true; }
+  void update() {}
+
+  void draw(float /*x*/, float /*y*/, float /*w*/, float /*h*/) const {}
+
+  const std::string& loadedPath() const { return loadedPath_; }
+  bool isPlaying() const { return playing_; }
+
+ private:
+  std::string loadedPath_{};
+  bool playing_{false};
+};
+
 class ofBaseApp {
  public:
   virtual ~ofBaseApp() = default;

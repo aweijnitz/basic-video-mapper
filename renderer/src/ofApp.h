@@ -1,8 +1,10 @@
 #pragma once
 
 #include <mutex>
+#include <queue>
 #include <string>
 
+#include "RenderState.h"
 #include "net/RendererServer.h"
 #include "openFrameworksStub/ofMain.h"
 
@@ -24,10 +26,15 @@ class ofApp : public ofBaseApp, public projection::renderer::RendererCommandHand
   void updateStatusForSetFeed(const projection::core::SetFeedForSurfaceMessage& setFeed,
                               const std::string& commandId);
   void updateStatusForPlayCue(const projection::core::PlayCueMessage& playCue, const std::string& commandId);
+  void processMessage(const projection::core::RendererMessage& message);
 
   projection::renderer::RendererServer server_;
   int port_;
 
+  projection::renderer::RenderState renderState_{};
+
+  std::mutex queueMutex_{};
+  std::queue<projection::core::RendererMessage> messageQueue_{};
   std::mutex stateMutex_{};
   std::string lastCommand_;
   std::string lastError_;

@@ -1,8 +1,11 @@
 #include "ofApp.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <utility>
+#include <vector>
 
 using projection::core::RendererMessageType;
 
@@ -24,7 +27,22 @@ ofApp::ofApp() : server_(*this), port_(resolvePort()) {}
 
 void ofApp::setup() { server_.start(port_); }
 
-void ofApp::update() {}
+void ofApp::update() {
+  std::vector<projection::core::RendererMessage> messages;
+  {
+    std::lock_guard<std::mutex> lock(queueMutex_);
+    while (!messageQueue_.empty()) {
+      messages.push_back(messageQueue_.front());
+      messageQueue_.pop();
+    }
+  }
+
+  for (const auto& message : messages) {
+    processMessage(message);
+  }
+
+  renderState_.updateVideoPlayers();
+}
 
 void ofApp::draw() {
   std::string lastCommand;
@@ -46,6 +64,36 @@ void ofApp::draw() {
   ofBackground(0, 0, 0);
   ofSetColor(255, 255, 255);
 
+  // Draw loaded video feeds on their surfaces.
+  const auto& scene = renderState_.currentScene();
+  const auto& videoFeeds = renderState_.videoFeeds();
+  for (const auto& surface : scene.getSurfaces()) {
+    auto it = videoFeeds.find(surface.getFeedId().value);
+    if (it == videoFeeds.end()) {
+      continue;
+    }
+
+    const auto& vertices = surface.getVertices();
+    if (vertices.empty()) {
+      continue;
+    }
+
+    float minX = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float minY = std::numeric_limits<float>::max();
+    float maxY = std::numeric_limits<float>::lowest();
+    for (const auto& vertex : vertices) {
+      minX = std::min(minX, vertex.x);
+      maxX = std::max(maxX, vertex.x);
+      minY = std::min(minY, vertex.y);
+      maxY = std::max(maxY, vertex.y);
+    }
+
+    float width = std::max(0.0f, maxX - minX);
+    float height = std::max(0.0f, maxY - minY);
+    it->second.player.draw(minX, minY, width, height);
+  }
+
   ofDrawBitmapString("Renderer listening on port: " + std::to_string(serverPort), 20, 20);
   if (!role.empty()) {
     ofDrawBitmapString("Role: " + role + " | Version: " + version, 20, 40);
@@ -65,21 +113,48 @@ void ofApp::draw() {
 void ofApp::exit() { server_.stop(); }
 
 void ofApp::handle(const projection::core::RendererMessage& message) {
-  std::lock_guard<std::mutex> lock(stateMutex_);
-  lastError_.clear();
+  std::lock_guard<std::mutex> lock(queueMutex_);
+  messageQueue_.push(message);
+}
+
+void ofApp::processMessage(const projection::core::RendererMessage& message) {
+  {
+    std::lock_guard<std::mutex> lock(stateMutex_);
+    lastError_.clear();
+  }
 
   switch (message.type) {
     case RendererMessageType::Hello:
-      updateStatusForHello(*message.hello, message.commandId);
+      {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        updateStatusForHello(*message.hello, message.commandId);
+      }
       break;
     case RendererMessageType::LoadScene:
-      updateStatusForLoadScene(*message.loadScene, message.commandId);
+      {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        updateStatusForLoadScene(*message.loadScene, message.commandId);
+      }
+      break;
+    case RendererMessageType::LoadSceneDefinition:
+      renderState_.loadSceneDefinition(message.loadSceneDefinition->scene, message.loadSceneDefinition->feeds);
+      {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        sceneId_ = message.loadSceneDefinition->scene.getId().value;
+        lastCommand_ = "LoadSceneDefinition (#" + message.commandId + ")";
+      }
       break;
     case RendererMessageType::SetFeedForSurface:
-      updateStatusForSetFeed(*message.setFeedForSurface, message.commandId);
+      {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        updateStatusForSetFeed(*message.setFeedForSurface, message.commandId);
+      }
       break;
     case RendererMessageType::PlayCue:
-      updateStatusForPlayCue(*message.playCue, message.commandId);
+      {
+        std::lock_guard<std::mutex> lock(stateMutex_);
+        updateStatusForPlayCue(*message.playCue, message.commandId);
+      }
       break;
     case RendererMessageType::Ack:
     case RendererMessageType::Error:
