@@ -32,6 +32,11 @@ class Scene {
 
   bool isConsistent(const std::vector<Feed>& feeds) const;
 
+  bool operator==(const Scene& other) const {
+    return id_ == other.id_ && name_ == other.name_ && description_ == other.description_ &&
+           surfaces_ == other.surfaces_;
+  }
+
  private:
   SceneId id_{};
   std::string name_{};

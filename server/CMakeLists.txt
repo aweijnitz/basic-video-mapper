@@ -91,6 +91,7 @@ add_executable(projection_server_tests
     tests/HttpScenesSurfaces_test.cpp
     tests/HttpRendererIntegration_test.cpp
     tests/RendererClient_test.cpp
+    tests/RendererClient_LoadSceneDefinition_test.cpp
 )
 
 target_compile_features(projection_server_tests PRIVATE cxx_std_17)

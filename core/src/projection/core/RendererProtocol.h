@@ -2,10 +2,13 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
 #include "projection/core/Ids.h"
+#include "projection/core/Scene.h"
+#include "projection/core/Feed.h"
 
 namespace projection::core {
 
@@ -19,6 +22,7 @@ enum class RendererMessageType {
   Ack,
   Error,
   LoadScene,
+  LoadSceneDefinition,
   SetFeedForSurface,
   PlayCue
 };
@@ -62,6 +66,15 @@ struct LoadSceneMessage {
   bool operator==(const LoadSceneMessage& other) const { return sceneId == other.sceneId; }
 };
 
+struct LoadSceneDefinitionMessage {
+  Scene scene;
+  std::vector<Feed> feeds;
+
+  bool operator==(const LoadSceneDefinitionMessage& other) const {
+    return scene == other.scene && feeds == other.feeds;
+  }
+};
+
 struct SetFeedForSurfaceMessage {
   SurfaceId surfaceId;
   FeedId feedId;
@@ -84,12 +97,14 @@ struct RendererMessage {
   std::optional<AckMessage> ack;
   std::optional<ErrorMessage> error;
   std::optional<LoadSceneMessage> loadScene;
+  std::optional<LoadSceneDefinitionMessage> loadSceneDefinition;
   std::optional<SetFeedForSurfaceMessage> setFeedForSurface;
   std::optional<PlayCueMessage> playCue;
 
   bool operator==(const RendererMessage& other) const {
     return type == other.type && commandId == other.commandId && hello == other.hello &&
            ack == other.ack && error == other.error && loadScene == other.loadScene &&
+           loadSceneDefinition == other.loadSceneDefinition &&
            setFeedForSurface == other.setFeedForSurface && playCue == other.playCue;
   }
 };
@@ -109,6 +124,9 @@ void from_json(const nlohmann::json& j, ErrorMessage& message);
 
 void to_json(nlohmann::json& j, const LoadSceneMessage& message);
 void from_json(const nlohmann::json& j, LoadSceneMessage& message);
+
+void to_json(nlohmann::json& j, const LoadSceneDefinitionMessage& message);
+void from_json(const nlohmann::json& j, LoadSceneDefinitionMessage& message);
 
 void to_json(nlohmann::json& j, const SetFeedForSurfaceMessage& message);
 void from_json(const nlohmann::json& j, SetFeedForSurfaceMessage& message);

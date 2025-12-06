@@ -2,8 +2,10 @@
 
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <chrono>
 #include <stdexcept>
 #include <string>
+#include <sstream>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -88,6 +90,16 @@ void RendererClient::sendMessage(const projection::core::RendererMessage& msg) {
     }
 }
 
+void RendererClient::sendLoadSceneDefinition(const projection::core::Scene& scene,
+                                             const std::vector<projection::core::Feed>& feeds) {
+    projection::core::RendererMessage message{};
+    message.type = projection::core::RendererMessageType::LoadSceneDefinition;
+    message.commandId = generateCommandId();
+    message.loadSceneDefinition = projection::core::LoadSceneDefinitionMessage{scene, feeds};
+
+    sendMessage(message);
+}
+
 projection::core::RendererMessage RendererClient::receiveMessage() {
     ensureConnected();
     std::string buffer;
@@ -114,6 +126,13 @@ projection::core::RendererMessage RendererClient::receiveMessage() {
             }
         }
     }
+}
+
+std::string RendererClient::generateCommandId() const {
+    auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    std::ostringstream oss;
+    oss << "cmd-" << now;
+    return oss.str();
 }
 
 }  // namespace projection::server::renderer

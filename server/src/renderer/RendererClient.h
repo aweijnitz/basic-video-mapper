@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "projection/core/RendererProtocol.h"
 
@@ -15,6 +16,7 @@ public:
     void disconnect();
 
     void sendMessage(const projection::core::RendererMessage& msg);
+    void sendLoadSceneDefinition(const projection::core::Scene& scene, const std::vector<projection::core::Feed>& feeds);
     projection::core::RendererMessage receiveMessage();
 
 private:
@@ -23,6 +25,7 @@ private:
     int socketFd_;
 
     void ensureConnected() const;
+    std::string generateCommandId() const;
 };
 
 }  // namespace projection::server::renderer

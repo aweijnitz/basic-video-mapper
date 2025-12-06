@@ -28,6 +28,10 @@ class Feed {
   const std::string& getConfigJson() const { return configJson_; }
   void setConfigJson(const std::string& json) { configJson_ = json; }
 
+  bool operator==(const Feed& other) const {
+    return id_ == other.id_ && name_ == other.name_ && type_ == other.type_ && configJson_ == other.configJson_;
+  }
+
  private:
   FeedId id_{};
   std::string name_{};

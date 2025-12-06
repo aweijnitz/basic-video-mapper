@@ -63,6 +63,7 @@ add_executable(projection_core_tests
     tests/FeedConfig_test.cpp
     tests/FeedSceneSurfaceCue_test.cpp
     tests/Serialization_test.cpp
+    tests/RendererProtocol_LoadSceneDefinition_test.cpp
     tests/RendererProtocol_test.cpp
     tests/Validation_test.cpp
 )

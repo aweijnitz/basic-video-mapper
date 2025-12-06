@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "projection/core/Serialization.h"
+
 using nlohmann::json;
 
 namespace projection::core {
@@ -13,6 +15,7 @@ const std::unordered_map<RendererMessageType, std::string> kRendererMessageTypeT
                                                                                        {RendererMessageType::Ack, "ack"},
                                                                                        {RendererMessageType::Error, "error"},
                                                                                        {RendererMessageType::LoadScene, "loadScene"},
+                                                                                       {RendererMessageType::LoadSceneDefinition, "loadSceneDefinition"},
                                                                                        {RendererMessageType::SetFeedForSurface, "setFeedForSurface"},
                                                                                        {RendererMessageType::PlayCue, "playCue"}};
 
@@ -95,6 +98,33 @@ void from_json(const json& j, LoadSceneMessage& message) {
   message.sceneId = SceneId(requireString(j, "sceneId"));
 }
 
+void to_json(json& j, const LoadSceneDefinitionMessage& message) {
+  j = json{{"scene", message.scene}, {"feeds", message.feeds}};
+}
+
+void from_json(const json& j, LoadSceneDefinitionMessage& message) {
+  if (!j.is_object()) {
+    throw std::runtime_error("LoadSceneDefinition payload must be an object");
+  }
+
+  if (!j.contains("scene")) {
+    throw std::runtime_error("Missing required field: scene");
+  }
+  if (!j.at("scene").is_object()) {
+    throw std::runtime_error("Field 'scene' must be an object");
+  }
+  message.scene = j.at("scene").get<Scene>();
+
+  if (!j.contains("feeds")) {
+    throw std::runtime_error("Missing required field: feeds");
+  }
+  const auto& feedsJson = j.at("feeds");
+  if (!feedsJson.is_array()) {
+    throw std::runtime_error("Field 'feeds' must be an array");
+  }
+  message.feeds = feedsJson.get<std::vector<Feed>>();
+}
+
 void to_json(json& j, const SetFeedForSurfaceMessage& message) {
   j = json{{"surfaceId", message.surfaceId.value}, {"feedId", message.feedId.value}};
 }
@@ -144,6 +174,12 @@ void to_json(json& j, const RendererMessage& message) {
         throw std::runtime_error("LoadScene message missing payload");
       }
       payload = *message.loadScene;
+      break;
+    case RendererMessageType::LoadSceneDefinition:
+      if (!message.loadSceneDefinition) {
+        throw std::runtime_error("LoadSceneDefinition message missing payload");
+      }
+      payload = *message.loadSceneDefinition;
       break;
     case RendererMessageType::SetFeedForSurface:
       if (!message.setFeedForSurface) {
@@ -204,6 +240,12 @@ void from_json(const json& j, RendererMessage& message) {
       LoadSceneMessage loadSceneMessage;
       from_json(payload, loadSceneMessage);
       message.loadScene = loadSceneMessage;
+      break;
+    }
+    case RendererMessageType::LoadSceneDefinition: {
+      LoadSceneDefinitionMessage loadSceneDefinitionMessage;
+      from_json(payload, loadSceneDefinitionMessage);
+      message.loadSceneDefinition = loadSceneDefinitionMessage;
       break;
     }
     case RendererMessageType::SetFeedForSurface: {
