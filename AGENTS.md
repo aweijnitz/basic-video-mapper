@@ -80,6 +80,7 @@ The repo is structured as a C++-oriented monorepo with four main components:
 - **Server → Renderer**
   - Sends high-level commands:
     - “Load this Scene definition”
+      - Use the `loadSceneDefinition` renderer protocol message to send the full Scene plus referenced Feeds as a single payload.
     - “Update Surface #23 vertices”
     - “Switch Feed of Surface #10 to `feedId=xyz`”
     - “Play / Pause / Seek cue X”

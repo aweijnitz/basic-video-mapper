@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <httplib.h>
 #include <mutex>
+#include <vector>
 #include <netinet/in.h>
 #include <nlohmann/json.hpp>
 #include <sys/socket.h>
@@ -261,8 +262,17 @@ TEST_CASE("LoadScene endpoint validates and forwards to renderer", "[http][rende
     const auto dbPath = tempDbPath("renderer_load_scene.db");
     RendererHttpContext ctx(dbPath, rendererClient);
 
-    core::Scene scene(core::SceneId{"42"}, "Test", "Renderer scene", {});
-    ctx.sceneRepo.createScene(scene);
+    core::Feed feedA(core::FeedId{}, "Feed A", core::FeedType::VideoFile, R"({"filePath":"a.mp4"})");
+    core::Feed feedB(core::FeedId{}, "Feed B", core::FeedType::VideoFile, R"({"filePath":"b.mp4"})");
+    feedA = ctx.feedRepo.createFeed(feedA);
+    feedB = ctx.feedRepo.createFeed(feedB);
+
+    std::vector<core::Vec2> quad{{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}};
+    std::vector<core::Surface> surfaces{
+        core::Surface(core::SurfaceId{"integration-surface-1"}, "One", quad, feedA.getId()),
+        core::Surface(core::SurfaceId{"integration-surface-2"}, "Two", quad, feedB.getId())};
+    core::Scene scene(core::SceneId{}, "Test", "Renderer scene", surfaces);
+    scene = ctx.sceneRepo.createScene(scene);
 
     ServerRunner runner(ctx.httpServer, httpPort);
     auto httpClient = makeClient(httpPort);
@@ -270,16 +280,23 @@ TEST_CASE("LoadScene endpoint validates and forwards to renderer", "[http][rende
 
     rendererClient->connect();
 
-    nlohmann::json payload{{"sceneId", "42"}};
-    auto res = httpClient->Post("/renderer/loadScene", payload.dump(), "application/json");
+    nlohmann::json requestPayload{{"sceneId", scene.getId().value}};
+    auto res = httpClient->Post("/renderer/loadScene", requestPayload.dump(), "application/json");
     REQUIRE(res != nullptr);
     REQUIRE(res->status == 200);
     REQUIRE(fakeRenderer.waitForMessages(1));
 
     auto messages = fakeRenderer.messages();
-    REQUIRE(messages.front().type == core::RendererMessageType::LoadScene);
-    REQUIRE(messages.front().loadScene.has_value());
-    REQUIRE(messages.front().loadScene->sceneId.value == "42");
+    REQUIRE(messages.front().type == core::RendererMessageType::LoadSceneDefinition);
+    REQUIRE(messages.front().loadSceneDefinition.has_value());
+    const auto& messagePayload = *messages.front().loadSceneDefinition;
+    REQUIRE(messagePayload.scene.getId().value == scene.getId().value);
+    REQUIRE(messagePayload.scene.getSurfaces().size() == 2);
+    REQUIRE(messagePayload.scene.getSurfaces()[0].getFeedId().value == feedA.getId().value);
+    REQUIRE(messagePayload.scene.getSurfaces()[1].getFeedId().value == feedB.getId().value);
+    REQUIRE(messagePayload.feeds.size() == 2);
+    REQUIRE(messagePayload.feeds[0].getId().value == feedA.getId().value);
+    REQUIRE(messagePayload.feeds[1].getId().value == feedB.getId().value);
 
     std::filesystem::remove(dbPath);
 }

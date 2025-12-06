@@ -12,6 +12,8 @@ namespace projection::core {
 struct Vec2 {
   float x{0.0f};
   float y{0.0f};
+
+  bool operator==(const Vec2& other) const { return x == other.x && y == other.y; }
 };
 
 class Surface {
@@ -46,6 +48,12 @@ class Surface {
   void setZOrder(int z) { zOrder_ = z; }
 
   bool isValid() const;
+
+  bool operator==(const Surface& other) const {
+    return id_ == other.id_ && name_ == other.name_ && vertices_ == other.vertices_ && feedId_ == other.feedId_ &&
+           opacity_ == other.opacity_ && brightness_ == other.brightness_ && blendMode_ == other.blendMode_ &&
+           zOrder_ == other.zOrder_;
+  }
 
  private:
   static float clampUnit(float value);

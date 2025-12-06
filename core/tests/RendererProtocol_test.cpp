@@ -7,14 +7,10 @@ using namespace projection::core;
 using nlohmann::json;
 
 TEST_CASE("RendererProtocol round trip Hello", "[RendererProtocol]") {
-  RendererMessage message{RendererMessageType::Hello,
-                          "cmd-hello",
-                          HelloMessage{"0.1.0", "renderer"},
-                          std::nullopt,
-                          std::nullopt,
-                          std::nullopt,
-                          std::nullopt,
-                          std::nullopt};
+  RendererMessage message{};
+  message.type = RendererMessageType::Hello;
+  message.commandId = "cmd-hello";
+  message.hello = HelloMessage{"0.1.0", "renderer"};
 
   json j = message;
   auto parsed = j.get<RendererMessage>();
@@ -23,27 +19,19 @@ TEST_CASE("RendererProtocol round trip Hello", "[RendererProtocol]") {
 }
 
 TEST_CASE("RendererProtocol round trip Ack and Error", "[RendererProtocol]") {
-  RendererMessage ackMessage{RendererMessageType::Ack,
-                             "cmd-ack",
-                             std::nullopt,
-                             AckMessage{"cmd-target"},
-                             std::nullopt,
-                             std::nullopt,
-                             std::nullopt,
-                             std::nullopt};
+  RendererMessage ackMessage{};
+  ackMessage.type = RendererMessageType::Ack;
+  ackMessage.commandId = "cmd-ack";
+  ackMessage.ack = AckMessage{"cmd-target"};
 
   json ackJson = ackMessage;
   auto parsedAck = ackJson.get<RendererMessage>();
   REQUIRE(parsedAck == ackMessage);
 
-  RendererMessage errorMessage{RendererMessageType::Error,
-                               "cmd-error",
-                               std::nullopt,
-                               std::nullopt,
-                               ErrorMessage{"cmd-failed", "Something went wrong"},
-                               std::nullopt,
-                               std::nullopt,
-                               std::nullopt};
+  RendererMessage errorMessage{};
+  errorMessage.type = RendererMessageType::Error;
+  errorMessage.commandId = "cmd-error";
+  errorMessage.error = ErrorMessage{"cmd-failed", "Something went wrong"};
 
   json errorJson = errorMessage;
   auto parsedError = errorJson.get<RendererMessage>();
@@ -51,40 +39,28 @@ TEST_CASE("RendererProtocol round trip Ack and Error", "[RendererProtocol]") {
 }
 
 TEST_CASE("RendererProtocol round trip scene and feed commands", "[RendererProtocol]") {
-  RendererMessage loadSceneMessage{RendererMessageType::LoadScene,
-                                   "cmd-load",
-                                   std::nullopt,
-                                   std::nullopt,
-                                   std::nullopt,
-                                   LoadSceneMessage{SceneId{"scene-123"}},
-                                   std::nullopt,
-                                   std::nullopt};
+  RendererMessage loadSceneMessage{};
+  loadSceneMessage.type = RendererMessageType::LoadScene;
+  loadSceneMessage.commandId = "cmd-load";
+  loadSceneMessage.loadScene = LoadSceneMessage{SceneId{"scene-123"}};
 
   json loadSceneJson = loadSceneMessage;
   auto parsedLoadScene = loadSceneJson.get<RendererMessage>();
   REQUIRE(parsedLoadScene == loadSceneMessage);
 
-  RendererMessage setFeedMessage{RendererMessageType::SetFeedForSurface,
-                                 "cmd-set-feed",
-                                 std::nullopt,
-                                 std::nullopt,
-                                 std::nullopt,
-                                 std::nullopt,
-                                 SetFeedForSurfaceMessage{SurfaceId{"surface-1"}, FeedId{"feed-9"}},
-                                 std::nullopt};
+  RendererMessage setFeedMessage{};
+  setFeedMessage.type = RendererMessageType::SetFeedForSurface;
+  setFeedMessage.commandId = "cmd-set-feed";
+  setFeedMessage.setFeedForSurface = SetFeedForSurfaceMessage{SurfaceId{"surface-1"}, FeedId{"feed-9"}};
 
   json setFeedJson = setFeedMessage;
   auto parsedSetFeed = setFeedJson.get<RendererMessage>();
   REQUIRE(parsedSetFeed == setFeedMessage);
 
-  RendererMessage playCueMessage{RendererMessageType::PlayCue,
-                                 "cmd-play",
-                                 std::nullopt,
-                                 std::nullopt,
-                                 std::nullopt,
-                                 std::nullopt,
-                                 std::nullopt,
-                                 PlayCueMessage{CueId{"cue-5"}}};
+  RendererMessage playCueMessage{};
+  playCueMessage.type = RendererMessageType::PlayCue;
+  playCueMessage.commandId = "cmd-play";
+  playCueMessage.playCue = PlayCueMessage{CueId{"cue-5"}};
 
   json playCueJson = playCueMessage;
   auto parsedPlayCue = playCueJson.get<RendererMessage>();

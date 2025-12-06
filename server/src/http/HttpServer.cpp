@@ -5,6 +5,8 @@
 #include <chrono>
 #include <stdexcept>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "projection/core/Serialization.h"
 #include "projection/core/RendererProtocol.h"
@@ -148,17 +150,38 @@ void HttpServer::registerRoutes() {
             }
 
             core::SceneId sceneId{body["sceneId"].get<std::string>()};
-            if (!sceneRepository_.sceneExists(sceneId)) {
+            auto scene = sceneRepository_.findSceneById(sceneId);
+            if (!scene.has_value()) {
                 respondWithError(res, 400, "Scene does not exist");
                 return;
             }
 
-            core::RendererMessage message{};
-            message.type = core::RendererMessageType::LoadScene;
-            message.commandId = generateCommandId();
-            message.loadScene = core::LoadSceneMessage{sceneId};
+            std::vector<std::string> feedOrder;
+            std::unordered_set<std::string> seenFeedIds;
+            for (const auto& surface : scene->getSurfaces()) {
+                const auto& feedIdValue = surface.getFeedId().value;
+                if (!feedIdValue.empty() && seenFeedIds.insert(feedIdValue).second) {
+                    feedOrder.push_back(feedIdValue);
+                }
+            }
 
-            rendererClient_->sendMessage(message);
+            std::unordered_map<std::string, core::Feed> feedsById;
+            for (const auto& feed : feedRepository_.listFeeds()) {
+                feedsById.emplace(feed.getId().value, feed);
+            }
+
+            std::vector<core::Feed> feeds;
+            feeds.reserve(feedOrder.size());
+            for (const auto& feedId : feedOrder) {
+                auto it = feedsById.find(feedId);
+                if (it == feedsById.end()) {
+                    respondWithError(res, 400, "Feed not found: " + feedId);
+                    return;
+                }
+                feeds.push_back(it->second);
+            }
+
+            rendererClient_->sendLoadSceneDefinition(*scene, feeds);
             res.status = 200;
             res.set_content(json({{"status", "sent"}}).dump(), "application/json");
         } catch (const json::exception& ex) {
