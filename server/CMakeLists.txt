@@ -34,6 +34,8 @@ add_library(projection_server_lib
     ${SERVER_SOURCE_DIR}/renderer/RendererClient.h
     ${SERVER_SOURCE_DIR}/repo/FeedRepository.cpp
     ${SERVER_SOURCE_DIR}/repo/FeedRepository.h
+    ${SERVER_SOURCE_DIR}/repo/SurfaceRepository.cpp
+    ${SERVER_SOURCE_DIR}/repo/SurfaceRepository.h
     ${SERVER_SOURCE_DIR}/repo/SceneRepository.cpp
     ${SERVER_SOURCE_DIR}/repo/SceneRepository.h
 )
@@ -82,8 +84,11 @@ add_executable(projection_server_tests
     tests/Config_test.cpp
     tests/ServerApp_test.cpp
     tests/Db_test.cpp
+    tests/DbSurfaces_test.cpp
     tests/Repository_test.cpp
+    tests/SurfaceRepository_test.cpp
     tests/HttpApi_test.cpp
+    tests/HttpScenesSurfaces_test.cpp
     tests/HttpRendererIntegration_test.cpp
     tests/RendererClient_test.cpp
 )

@@ -103,6 +103,15 @@ void from_json(const json& j, BlendMode& mode) {
   mode = parseBlendModeString(j.get<std::string>());
 }
 
+void to_json(json& j, const VideoFileConfig& config) { j = json{{"filePath", config.filePath}}; }
+
+void from_json(const json& j, VideoFileConfig& config) {
+  if (!j.is_object()) {
+    throw std::runtime_error("VideoFileConfig must be an object");
+  }
+  config.filePath = requireString(j, "filePath");
+}
+
 void to_json(json& j, const Vec2& vec) { j = json{{"x", vec.x}, {"y", vec.y}}; }
 
 void from_json(const json& j, Vec2& vec) {

@@ -60,6 +60,7 @@ add_library(Catch2::Catch2WithMain ALIAS Catch2WithMain)
 add_executable(projection_core_tests
     tests/CoreInit_test.cpp
     tests/IdsEnums_test.cpp
+    tests/FeedConfig_test.cpp
     tests/FeedSceneSurfaceCue_test.cpp
     tests/Serialization_test.cpp
     tests/RendererProtocol_test.cpp

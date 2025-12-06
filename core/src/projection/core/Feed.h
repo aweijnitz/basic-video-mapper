@@ -7,6 +7,10 @@
 
 namespace projection::core {
 
+struct VideoFileConfig {
+  std::string filePath;
+};
+
 class Feed {
  public:
   Feed() = default;
@@ -30,5 +34,8 @@ class Feed {
   FeedType type_{FeedType::VideoFile};
   std::string configJson_{};
 };
+
+VideoFileConfig parseVideoFileConfig(const Feed& feed);
+Feed makeVideoFileFeed(const FeedId& id, const std::string& name, const std::string& filePath);
 
 }  // namespace projection::core

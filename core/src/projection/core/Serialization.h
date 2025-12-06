@@ -24,6 +24,9 @@ void from_json(const nlohmann::json& j, FeedType& type);
 void to_json(nlohmann::json& j, const BlendMode& mode);
 void from_json(const nlohmann::json& j, BlendMode& mode);
 
+void to_json(nlohmann::json& j, const VideoFileConfig& config);
+void from_json(const nlohmann::json& j, VideoFileConfig& config);
+
 void to_json(nlohmann::json& j, const Vec2& vec);
 void from_json(const nlohmann::json& j, Vec2& vec);
 
