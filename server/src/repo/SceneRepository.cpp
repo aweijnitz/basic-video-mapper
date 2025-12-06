@@ -5,6 +5,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "repo/SurfaceRepository.h"
+
 namespace projection::server::repo {
 
 namespace {
@@ -78,8 +80,10 @@ core::Scene SceneRepository::createScene(const core::Scene& scene) {
         created.setId(core::SceneId(std::to_string(newId)));
     }
 
-    // Surfaces are not persisted for this milestone.
-    created.setSurfaces({});
+    repo::SurfaceRepository surfaceRepo(connection_);
+    for (const auto& surface : scene.getSurfaces()) {
+        surfaceRepo.createSurface(surface, created.getId());
+    }
 
     return created;
 }
@@ -117,6 +121,12 @@ std::vector<core::Scene> SceneRepository::listScenes() {
     }
 
     sqlite3_finalize(stmt);
+
+    repo::SurfaceRepository surfaceRepo(connection_);
+    for (auto& scene : scenes) {
+        scene.setSurfaces(surfaceRepo.listSurfacesForScene(scene.getId()));
+    }
+
     return scenes;
 }
 
@@ -148,7 +158,9 @@ std::optional<core::Scene> SceneRepository::findSceneById(const core::SceneId& s
         std::string name = nameText ? reinterpret_cast<const char*>(nameText) : "";
         std::string description = descText ? reinterpret_cast<const char*>(descText) : "";
         sqlite3_finalize(stmt);
-        return core::Scene(sceneId, name, description, {});
+        repo::SurfaceRepository surfaceRepo(connection_);
+        auto surfaces = surfaceRepo.listSurfacesForScene(sceneId);
+        return core::Scene(sceneId, name, description, surfaces);
     }
 
     if (result != SQLITE_DONE) {

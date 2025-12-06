@@ -8,6 +8,7 @@
 
 #include "projection/core/Serialization.h"
 #include "projection/core/RendererProtocol.h"
+#include "projection/core/Validation.h"
 
 namespace projection::server::http {
 
@@ -59,6 +60,14 @@ void HttpServer::registerRoutes() {
         try {
             auto body = json::parse(req.body);
             auto scene = body.get<core::Scene>();
+
+            auto feeds = feedRepository_.listFeeds();
+            std::string error;
+            if (!core::validateSceneFeeds(scene, feeds, error)) {
+                respondWithError(res, 400, error);
+                return;
+            }
+
             auto created = sceneRepository_.createScene(scene);
             res.status = 201;
             res.set_content(json(created).dump(), "application/json");
@@ -72,6 +81,26 @@ void HttpServer::registerRoutes() {
             const auto scenes = sceneRepository_.listScenes();
             res.status = 200;
             res.set_content(json(scenes).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 500, ex.what());
+        }
+    });
+
+    server_->Get(R"(/scenes/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing scene id");
+                return;
+            }
+            core::SceneId sceneId{req.matches[1]};
+            auto scene = sceneRepository_.findSceneById(sceneId);
+            if (!scene.has_value()) {
+                respondWithError(res, 404, "Scene not found");
+                return;
+            }
+
+            res.status = 200;
+            res.set_content(json(*scene).dump(), "application/json");
         } catch (const std::exception& ex) {
             respondWithError(res, 500, ex.what());
         }
