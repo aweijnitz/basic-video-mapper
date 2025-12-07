@@ -1,6 +1,7 @@
 #include "ofApp.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
@@ -25,7 +26,19 @@ int resolvePort() {
 
 ofApp::ofApp() : server_(*this), port_(resolvePort()) {}
 
-void ofApp::setup() { server_.start(port_); }
+void ofApp::setup() {
+  server_.start(port_);
+
+  midiIn_.openPort(0);
+  midiIn_.addListener(this);
+
+  const int inputChannels = 1;
+  const int outputChannels = 0;
+  const int sampleRate = 44100;
+  const int bufferSize = 512;
+  soundStream_.setup(this, outputChannels, inputChannels, sampleRate, bufferSize, 4);
+  fft_ = ofxFft::create(bufferSize);
+}
 
 void ofApp::update() {
   std::vector<projection::core::RendererMessage> messages;
@@ -42,6 +55,23 @@ void ofApp::update() {
   }
 
   renderState_.updateVideoPlayers();
+
+  std::vector<float> audioCopy;
+  {
+    std::lock_guard<std::mutex> lock(audioMutex_);
+    audioCopy = audioBuffer_;
+  }
+
+  if (fft_ && !audioCopy.empty()) {
+    fft_->setSignal(audioCopy.data());
+    const int binSize = fft_->getBinSize();
+    std::vector<float> magnitudes(fft_->getMagnitude(), fft_->getMagnitude() + binSize);
+    const float averageEnergy = projection::renderer::computeAverageEnergy(magnitudes, 32);
+
+    constexpr float smoothingFactor = 0.9f;
+    smoothedEnergy_ = smoothingFactor * smoothedEnergy_ + (1.0f - smoothingFactor) * averageEnergy;
+    audioScale_ = projection::renderer::mapEnergyToScale(smoothedEnergy_);
+  }
 }
 
 void ofApp::draw() {
@@ -67,6 +97,12 @@ void ofApp::draw() {
   // Draw loaded video feeds on their surfaces.
   const auto& scene = renderState_.currentScene();
   const auto& videoFeeds = renderState_.videoFeeds();
+
+  ofPushMatrix();
+  ofTranslate(ofGetWidth() / 2.0f, ofGetHeight() / 2.0f);
+  ofScale(audioScale_, audioScale_);
+  ofTranslate(-ofGetWidth() / 2.0f, -ofGetHeight() / 2.0f);
+
   for (const auto& surface : scene.getSurfaces()) {
     auto it = videoFeeds.find(surface.getFeedId().value);
     if (it == videoFeeds.end()) {
@@ -91,8 +127,18 @@ void ofApp::draw() {
 
     float width = std::max(0.0f, maxX - minX);
     float height = std::max(0.0f, maxY - minY);
+
+    const float alpha = std::clamp(surface.getOpacity() * midiBrightness_, 0.0f, 1.0f);
+    const float brightness = std::clamp(surface.getBrightness(), 0.0f, 1.0f);
+    const int alphaValue = static_cast<int>(std::round(alpha * 255.0f));
+    const int colorValue = static_cast<int>(std::round(brightness * 255.0f));
+    ofSetColor(colorValue, colorValue, colorValue, alphaValue);
+
     it->second.player.draw(minX, minY, width, height);
   }
+
+  ofPopMatrix();
+  ofSetColor(255, 255, 255);
 
   ofDrawBitmapString("Renderer listening on port: " + std::to_string(serverPort), 20, 20);
   if (!role.empty()) {
@@ -110,7 +156,29 @@ void ofApp::draw() {
   }
 }
 
-void ofApp::exit() { server_.stop(); }
+void ofApp::audioIn(ofSoundBuffer& input) {
+  const int channels = std::max(1, input.getNumChannels());
+  std::vector<float> mono;
+  mono.reserve(static_cast<size_t>(input.getNumFrames()));
+  for (int i = 0; i < input.getNumFrames(); ++i) {
+    mono.push_back(input[static_cast<size_t>(i * channels)]);
+  }
+
+  std::lock_guard<std::mutex> lock(audioMutex_);
+  audioBuffer_ = std::move(mono);
+}
+
+void ofApp::newMidiMessage(ofxMidiMessage& msg) {
+  if (msg.status == ofxMidiMessage::MIDI_CONTROL_CHANGE && msg.control == 1) {
+    midiBrightness_ = projection::renderer::mapMidiValueToBrightness(msg.value);
+  }
+}
+
+void ofApp::exit() {
+  soundStream_.stop();
+  midiIn_.closePort();
+  server_.stop();
+}
 
 void ofApp::handle(const projection::core::RendererMessage& message) {
   std::lock_guard<std::mutex> lock(queueMutex_);
