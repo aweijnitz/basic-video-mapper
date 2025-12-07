@@ -156,29 +156,11 @@ void HttpServer::registerRoutes() {
                 return;
             }
 
-            std::vector<std::string> feedOrder;
-            std::unordered_set<std::string> seenFeedIds;
-            for (const auto& surface : scene->getSurfaces()) {
-                const auto& feedIdValue = surface.getFeedId().value;
-                if (!feedIdValue.empty() && seenFeedIds.insert(feedIdValue).second) {
-                    feedOrder.push_back(feedIdValue);
-                }
-            }
-
-            std::unordered_map<std::string, core::Feed> feedsById;
-            for (const auto& feed : feedRepository_.listFeeds()) {
-                feedsById.emplace(feed.getId().value, feed);
-            }
-
             std::vector<core::Feed> feeds;
-            feeds.reserve(feedOrder.size());
-            for (const auto& feedId : feedOrder) {
-                auto it = feedsById.find(feedId);
-                if (it == feedsById.end()) {
-                    respondWithError(res, 400, "Feed not found: " + feedId);
-                    return;
-                }
-                feeds.push_back(it->second);
+            std::string error;
+            if (!collectFeedsForScene(*scene, feeds, error)) {
+                respondWithError(res, 400, error);
+                return;
             }
 
             rendererClient_->sendLoadSceneDefinition(*scene, feeds);
@@ -186,6 +168,59 @@ void HttpServer::registerRoutes() {
             res.set_content(json({{"status", "sent"}}).dump(), "application/json");
         } catch (const json::exception& ex) {
             respondWithError(res, 400, ex.what());
+        } catch (const std::exception& ex) {
+            respondWithError(res, 500, ex.what());
+        }
+    });
+
+    server_->Post("/demo/two-video-test", [this](const ::httplib::Request&, ::httplib::Response& res) {
+        if (!rendererClient_) {
+            respondWithError(res, 500, "Renderer client not configured");
+            return;
+        }
+
+        try {
+            const auto suffix = generateCommandId();
+            core::Feed feedA(core::FeedId{}, "Demo Clip A", core::FeedType::VideoFile,
+                             R"({"filePath":"data/assets/clipA.mp4"})");
+            core::Feed feedB(core::FeedId{}, "Demo Clip B", core::FeedType::VideoFile,
+                             R"({"filePath":"data/assets/clipB.mp4"})");
+
+            feedA = feedRepository_.createFeed(feedA);
+            feedB = feedRepository_.createFeed(feedB);
+
+            std::vector<core::Vec2> quadA{{-0.8f, -0.6f}, {-0.1f, -0.5f}, {-0.1f, 0.2f}, {-0.8f, 0.1f}};
+            std::vector<core::Vec2> quadB{{0.1f, -0.3f}, {0.8f, -0.2f}, {0.7f, 0.5f}, {0.0f, 0.4f}};
+
+            core::Surface surfaceA(core::SurfaceId{"demo-surface-a-" + suffix}, "Demo Surface A", quadA, feedA.getId());
+            core::Surface surfaceB(core::SurfaceId{"demo-surface-b-" + suffix}, "Demo Surface B", quadB, feedB.getId());
+
+            core::Scene scene(core::SceneId{}, "Two Video Demo Scene", "Auto-generated demo scene",
+                              std::vector<core::Surface>{surfaceA, surfaceB});
+
+            auto feeds = feedRepository_.listFeeds();
+            std::string validationError;
+            if (!core::validateSceneFeeds(scene, feeds, validationError)) {
+                respondWithError(res, 400, validationError);
+                return;
+            }
+
+            auto createdScene = sceneRepository_.createScene(scene);
+
+            std::vector<core::Feed> rendererFeeds;
+            std::string error;
+            if (!collectFeedsForScene(createdScene, rendererFeeds, error)) {
+                respondWithError(res, 400, error);
+                return;
+            }
+
+            rendererClient_->sendLoadSceneDefinition(createdScene, rendererFeeds);
+
+            json payload{{"sceneId", createdScene.getId().value},
+                         {"feedIds", json::array({feedA.getId().value, feedB.getId().value})},
+                         {"surfaceIds", json::array({surfaceA.getId().value, surfaceB.getId().value})}};
+            res.status = 200;
+            res.set_content(payload.dump(), "application/json");
         } catch (const std::exception& ex) {
             respondWithError(res, 500, ex.what());
         }
@@ -202,6 +237,35 @@ std::string HttpServer::generateCommandId() const {
     std::ostringstream oss;
     oss << "cmd-" << now;
     return oss.str();
+}
+
+bool HttpServer::collectFeedsForScene(const core::Scene& scene, std::vector<core::Feed>& feeds, std::string& error) {
+    std::vector<std::string> feedOrder;
+    std::unordered_set<std::string> seenFeedIds;
+    for (const auto& surface : scene.getSurfaces()) {
+        const auto& feedIdValue = surface.getFeedId().value;
+        if (!feedIdValue.empty() && seenFeedIds.insert(feedIdValue).second) {
+            feedOrder.push_back(feedIdValue);
+        }
+    }
+
+    std::unordered_map<std::string, core::Feed> feedsById;
+    for (const auto& feed : feedRepository_.listFeeds()) {
+        feedsById.emplace(feed.getId().value, feed);
+    }
+
+    feeds.clear();
+    feeds.reserve(feedOrder.size());
+    for (const auto& feedId : feedOrder) {
+        auto it = feedsById.find(feedId);
+        if (it == feedsById.end()) {
+            error = "Feed not found: " + feedId;
+            return false;
+        }
+        feeds.push_back(it->second);
+    }
+
+    return true;
 }
 
 }  // namespace projection::server::http

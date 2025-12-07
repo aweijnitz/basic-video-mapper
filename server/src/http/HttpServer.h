@@ -26,6 +26,7 @@ public:
 private:
     void registerRoutes();
     void respondWithError(::httplib::Response& res, int status, const std::string& message);
+    bool collectFeedsForScene(const core::Scene& scene, std::vector<core::Feed>& feeds, std::string& error);
 
     std::string generateCommandId() const;
 

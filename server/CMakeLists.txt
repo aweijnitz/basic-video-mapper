@@ -90,6 +90,7 @@ add_executable(projection_server_tests
     tests/HttpApi_test.cpp
     tests/HttpScenesSurfaces_test.cpp
     tests/HttpRendererIntegration_test.cpp
+    tests/DemoFlow_test.cpp
     tests/RendererClient_test.cpp
     tests/RendererClient_LoadSceneDefinition_test.cpp
 )

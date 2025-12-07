@@ -89,6 +89,10 @@ The repo is structured as a C++-oriented monorepo with four main components:
 - **Renderer → Projector**
   - Fullscreen rendering window on the projector display (server machine’s GPU output).
 
+> **Renderer protocol & inputs:**
+> - `LoadSceneDefinition` is a supported control message for sending a full Scene plus the referenced Feeds in one payload.
+> - The renderer consumes MIDI via `ofxMidi` (e.g., CC #1 mapped to brightness) and audio input via `ofxFft` (FFT amplitude modulates scale).
+
 ---
 
 ## 3. Technology & Tooling Conventions
