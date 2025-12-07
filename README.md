@@ -146,6 +146,60 @@ curl -X POST http://localhost:8080/renderer/loadScene \
 
 For now, the renderer displays a simple visual and shows the last `sceneId` it was instructed to load via the control protocol.
 
+### Milestone 4 demo (two videos + MIDI/audio)
+
+Follow this minimal recipe to see the full end-to-end chain (server + renderer + control protocol + MIDI/audio input):
+
+1. **Build both binaries**
+   ```bash
+   cmake -S . -B .
+   cmake --build .
+   ```
+
+2. **Prepare demo assets** – place two small MP4 clips at `./data/assets/clipA.mp4` and `./data/assets/clipB.mp4`.
+
+3. **Start the renderer** (listens for control protocol commands on TCP port 5050 by default):
+   ```bash
+   ./renderer/projection_renderer --port 5050
+   ```
+
+4. **Start the server** (HTTP API on 8080; configured to talk to the renderer at 127.0.0.1:5050):
+   ```bash
+   ./server/projection_server \
+     --db ./data/db/projection.db \
+     --port 8080 \
+     --renderer-host 127.0.0.1 \
+     --renderer-port 5050
+   ```
+
+5. **Seed feeds and a scene (two ways):**
+   - **Manual calls**
+     ```bash
+     # Create two VideoFile feeds pointing at the prepared assets
+     curl -X POST http://localhost:8080/feeds -H "Content-Type: application/json" \
+       -d '{"name":"Clip A","type":"VideoFile","configJson":"{\\"filePath\\":\\"data/assets/clipA.mp4\\"}"}'
+     curl -X POST http://localhost:8080/feeds -H "Content-Type: application/json" \
+       -d '{"name":"Clip B","type":"VideoFile","configJson":"{\\"filePath\\":\\"data/assets/clipB.mp4\\"}"}'
+
+     # Create a scene with two surfaces that reference the feeds and include quad vertices
+     curl -X POST http://localhost:8080/scenes -H "Content-Type: application/json" \
+       -d '{"name":"Two Video Demo","description":"M4 walkthrough","surfaces":[{"id":"surface-a","name":"Left Quad","vertices":[{"x":-0.8,"y":-0.6},{"x":-0.1,"y":-0.5},{"x":-0.1,"y":0.2},{"x":-0.8,"y":0.1}],"feedId":"1"},{"id":"surface-b","name":"Right Quad","vertices":[{"x":0.1,"y":-0.3},{"x":0.8,"y":-0.2},{"x":0.7,"y":0.5},{"x":0.0,"y":0.4}],"feedId":"2"}]}'
+
+     # Send the full Scene + Feeds payload to the renderer
+     curl -X POST http://localhost:8080/renderer/loadScene -H "Content-Type: application/json" -d '{"sceneId":"1"}'
+     ```
+
+   - **Demo helper endpoint** (auto-creates feeds/surfaces/scene and sends LoadSceneDefinition):
+     ```bash
+     curl -X POST http://localhost:8080/demo/two-video-test
+     ```
+     The JSON response includes the created feed and scene IDs.
+
+6. **Observe on the projector/render window:**
+   - Two separate videos should appear, each pinned to its own quad.
+   - Turning MIDI CC #1 (a knob) modulates brightness.
+   - Playing audio into the renderer’s input modulates the scale via FFT amplitude.
+
 ---
 
 ## Repository Layout (Initial)
