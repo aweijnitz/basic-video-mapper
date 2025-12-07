@@ -44,6 +44,8 @@ add_executable(renderer_app
     ${RENDERER_SRC_DIR}/main.cpp
     ${RENDERER_SRC_DIR}/ofApp.cpp
     ${RENDERER_SRC_DIR}/ofApp.h
+    ${RENDERER_SRC_DIR}/util/InteractionUtils.cpp
+    ${RENDERER_SRC_DIR}/util/InteractionUtils.h
 )
 
 target_include_directories(renderer_app
@@ -62,8 +64,11 @@ target_link_libraries(renderer_app
 target_compile_features(renderer_app PRIVATE cxx_std_17)
 
 add_executable(renderer_tests
+    ${RENDERER_SRC_DIR}/util/InteractionUtils.cpp
+    ${RENDERER_SRC_DIR}/util/InteractionUtils.h
     tests/RendererServer_test.cpp
     tests/RenderState_test.cpp
+    tests/InteractionUtils_test.cpp
 )
 
 target_link_libraries(renderer_tests
