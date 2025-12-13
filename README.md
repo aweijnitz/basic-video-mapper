@@ -81,6 +81,15 @@ graph TD
 - **SQLite3** headers and library on the host (e.g., `libsqlite3-dev` on Debian/Ubuntu or Homebrew `sqlite` on macOS).
 - No external database service is required; the server reads/writes a local file-backed DB at `./data/db/projection.db` by default.
 
+__On MacOSX__ 
+
+For compilers to find sqlite you may need to set:
+
+```bash
+export LDFLAGS="-L/usr/local/opt/sqlite/lib"
+export CPPFLAGS="-I/usr/local/opt/sqlite/include"
+```
+
 ## Build & Run
 
 ```bash
