@@ -111,9 +111,9 @@ curl -X POST http://localhost:8080/scenes \
 curl http://localhost:8080/scenes
 ```
 
-### Renderer integration (Milestone 3)
+### Renderer integration
 
-Two long-running processes now work together: the **server** (`projection_server`) and the **renderer** (`projection_renderer`).
+Two long-running processes work together: the **server** (`projection_server`) and the **renderer** (`projection_renderer`).
 
 - **Default ports**: HTTP API on **8080**; renderer TCP control on **5050**.
 - **Start the renderer** (in a separate terminal):
@@ -146,7 +146,7 @@ curl -X POST http://localhost:8080/renderer/loadScene \
 
 For now, the renderer displays a simple visual and shows the last `sceneId` it was instructed to load via the control protocol.
 
-### Milestone 4 demo (two videos + MIDI/audio)
+### Example(two videos + MIDI/audio)
 
 Follow this minimal recipe to see the full end-to-end chain (server + renderer + control protocol + MIDI/audio input):
 
