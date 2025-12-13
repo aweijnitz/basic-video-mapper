@@ -83,9 +83,11 @@ graph TD
 
 __On MacOSX__ 
 
-For compilers to find sqlite you may need to set:
+On MacOSX may need to install the compiler and sqlite library before compiling.
 
 ```bash
+brew install cmake # in case you get "command not found: cmake"
+brew install sqlite
 export LDFLAGS="-L/usr/local/opt/sqlite/lib"
 export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 ```
