@@ -108,7 +108,7 @@ void HttpServer::registerRoutes() {
         }
     });
 
-    server_->Post("/renderer/ping", [this](const ::httplib::Request&, ::httplib::Response& res) {
+    auto handleRendererPing = [this](const ::httplib::Request&, ::httplib::Response& res) {
         if (!rendererClient_) {
             respondWithError(res, 500, "Renderer client not configured");
             return;
@@ -134,7 +134,10 @@ void HttpServer::registerRoutes() {
         } catch (const std::exception& ex) {
             respondWithError(res, 500, ex.what());
         }
-    });
+    };
+
+    server_->Post("/renderer/ping", handleRendererPing);
+    server_->Get("/renderer/ping", handleRendererPing);
 
     server_->Post("/renderer/loadScene", [this](const ::httplib::Request& req, ::httplib::Response& res) {
         if (!rendererClient_) {

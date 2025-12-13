@@ -34,6 +34,7 @@ class RendererServer {
 
   bool running() const { return running_; }
   int port() const { return port_; }
+  std::string lastError() const;
 
  private:
   void run(int port);
@@ -44,12 +45,13 @@ class RendererServer {
 
   RendererCommandHandler& handler_;
   std::atomic<bool> running_{false};
+  std::string lastError_;
   int serverFd_{-1};
   int clientFd_{-1};
   int port_{0};
   std::thread serverThread_{};
   std::mutex socketMutex_{};
+  mutable std::mutex errorMutex_{};
 };
 
 }  // namespace projection::renderer
-

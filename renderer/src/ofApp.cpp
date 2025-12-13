@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <csignal>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
@@ -41,6 +42,16 @@ void ofApp::setup() {
 }
 
 void ofApp::update() {
+  if (!server_.running()) {
+    const std::string serverError = server_.lastError();
+    if (!serverError.empty()) {
+      std::lock_guard<std::mutex> lock(stateMutex_);
+      lastError_ = serverError;
+    }
+    std::raise(SIGTERM);
+    return;
+  }
+
   std::vector<projection::core::RendererMessage> messages;
   {
     std::lock_guard<std::mutex> lock(queueMutex_);
@@ -252,4 +263,3 @@ void ofApp::updateStatusForSetFeed(const projection::core::SetFeedForSurfaceMess
 void ofApp::updateStatusForPlayCue(const projection::core::PlayCueMessage& playCue, const std::string& commandId) {
   lastCommand_ = "PlayCue (#" + commandId + ") -> cue " + playCue.cueId.value;
 }
-

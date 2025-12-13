@@ -8,6 +8,7 @@
 #include <sstream>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <iostream>
 
 #include <nlohmann/json.hpp>
 
@@ -79,6 +80,7 @@ void RendererClient::sendMessage(const projection::core::RendererMessage& msg) {
     std::string payload = j.dump();
     payload.push_back('\n');
 
+    std::cerr << "[RendererClient] sending: " << payload << std::endl;
     const char* data = payload.c_str();
     size_t totalSent = 0;
     while (totalSent < payload.size()) {
@@ -118,6 +120,7 @@ projection::core::RendererMessage RendererClient::receiveMessage() {
         auto newlinePos = buffer.find('\n');
         if (newlinePos != std::string::npos) {
             std::string line = buffer.substr(0, newlinePos);
+            std::cerr << "[RendererClient] received: " << line << std::endl;
             try {
                 auto json = nlohmann::json::parse(line);
                 return json.get<projection::core::RendererMessage>();
@@ -136,4 +139,3 @@ std::string RendererClient::generateCommandId() const {
 }
 
 }  // namespace projection::server::renderer
-

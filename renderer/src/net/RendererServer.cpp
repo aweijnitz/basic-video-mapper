@@ -7,6 +7,7 @@
 
 #include <cerrno>
 #include <cstring>
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 
@@ -51,6 +52,10 @@ void RendererServer::start(int port) {
   if (running_) {
     return;
   }
+  {
+    std::lock_guard<std::mutex> lock(errorMutex_);
+    lastError_.clear();
+  }
   running_ = true;
   serverThread_ = std::thread(&RendererServer::run, this, port);
 }
@@ -68,52 +73,77 @@ void RendererServer::stop() {
   }
 }
 
+std::string RendererServer::lastError() const {
+  std::lock_guard<std::mutex> lock(errorMutex_);
+  return lastError_;
+}
+
 void RendererServer::run(int port) {
-  serverFd_ = socket(AF_INET, SOCK_STREAM, 0);
-  if (serverFd_ < 0) {
-    running_ = false;
-    throw std::runtime_error("Failed to create socket: " + std::string(strerror(errno)));
-  }
+  try {
+    serverFd_ = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverFd_ < 0) {
+      running_ = false;
+      throw std::runtime_error("Failed to create socket: " + std::string(strerror(errno)));
+    }
 
-  int opt = 1;
-  setsockopt(serverFd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    int opt = 1;
+    setsockopt(serverFd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-  sockaddr_in addr{};
-  addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-  addr.sin_port = htons(port);
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(port);
 
-  if (bind(serverFd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
-    running_ = false;
-    throw std::runtime_error("Failed to bind socket: " + std::string(strerror(errno)));
-  }
+    if (bind(serverFd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
+      running_ = false;
+      throw std::runtime_error("Failed to bind socket: " + std::string(strerror(errno)));
+    }
 
-  socklen_t addrLen = sizeof(addr);
-  if (getsockname(serverFd_, reinterpret_cast<sockaddr*>(&addr), &addrLen) == 0) {
-    port_ = ntohs(addr.sin_port);
-  }
+    socklen_t addrLen = sizeof(addr);
+    if (getsockname(serverFd_, reinterpret_cast<sockaddr*>(&addr), &addrLen) == 0) {
+      port_ = ntohs(addr.sin_port);
+    }
 
-  if (listen(serverFd_, 1) < 0) {
-    running_ = false;
-    throw std::runtime_error("Failed to listen on socket: " + std::string(strerror(errno)));
-  }
+    if (listen(serverFd_, 1) < 0) {
+      running_ = false;
+      throw std::runtime_error("Failed to listen on socket: " + std::string(strerror(errno)));
+    }
 
-  while (running_) {
-    int client = accept(serverFd_, nullptr, nullptr);
-    if (client < 0) {
-      if (!running_) {
-        break;
+    std::cerr << "RendererServer listening on 127.0.0.1:" << port_ << std::endl;
+
+    while (running_) {
+      int client = accept(serverFd_, nullptr, nullptr);
+      if (client < 0) {
+        if (!running_) {
+          break;
+        }
+        continue;
       }
-      continue;
-    }
 
+      std::cerr << "RendererServer accepted client" << std::endl;
+      {
+        std::lock_guard<std::mutex> lock(socketMutex_);
+        clientFd_ = client;
+      }
+
+      handleClient(client);
+      closeClientSocket();
+      std::cerr << "RendererServer closed client" << std::endl;
+    }
+  } catch (const std::exception& ex) {
+    running_ = false;
     {
-      std::lock_guard<std::mutex> lock(socketMutex_);
-      clientFd_ = client;
+      std::lock_guard<std::mutex> lock(errorMutex_);
+      lastError_ = ex.what();
     }
-
-    handleClient(client);
-    closeClientSocket();
+    std::cerr << "RendererServer failed: " << ex.what() << std::endl;
+  } catch (...) {
+    running_ = false;
+    {
+      std::lock_guard<std::mutex> lock(errorMutex_);
+      lastError_ = "Unknown error";
+    }
+    std::cerr << "RendererServer failed with unknown error" << std::endl;
   }
 }
 
@@ -127,6 +157,7 @@ void RendererServer::handleClient(int clientFd) {
     if (received <= 0) {
       break;
     }
+    std::cerr << "RendererServer read " << received << " bytes" << std::endl;
     buffer.append(data, static_cast<size_t>(received));
 
     size_t newlinePos;
@@ -145,9 +176,11 @@ void RendererServer::handleClient(int clientFd) {
 
 void RendererServer::processLine(const std::string& line) {
   try {
+    std::cerr << "RendererServer received: " << line << std::endl;
     auto message = parseRendererMessageLine(line);
     handler_.handle(message);
     sendMessage(makeAckMessage(message.commandId));
+    std::cerr << "RendererServer sent Ack for " << message.commandId << std::endl;
   } catch (const std::exception& ex) {
     std::string commandId;
     try {
@@ -158,6 +191,7 @@ void RendererServer::processLine(const std::string& line) {
     } catch (...) {
     }
     sendMessage(makeErrorMessage(commandId, ex.what()));
+    std::cerr << "RendererServer sent Error for " << commandId << ": " << ex.what() << std::endl;
   }
 }
 
@@ -180,4 +214,3 @@ void RendererServer::closeClientSocket() {
 }
 
 }  // namespace projection::renderer
-

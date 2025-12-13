@@ -92,23 +92,57 @@ export LDFLAGS="-L/usr/local/opt/sqlite/lib"
 export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 ```
 
-## Build & Run
+## Build
+
+### Manual build: server (`projection_server`)
 
 ```bash
-# Configure and build from the repository root
-cmake -S . -B .
-cmake --build .
+# Configure once (re-use the same build dir for repeated builds)
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-# Start the server with explicit configuration
-./server/projection_server --db ./data/db/projection.db --port 8080
+# Build only the server binary
+cmake --build build --target projection_server
 ```
+
+- Binary output: `./build/server/projection_server`
+
+### Manual build: renderer (`renderer_app`)
+
+```bash
+# If you already configured `build/` you can skip the first line
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+# Build only the renderer binary
+cmake --build build --target renderer_app
+```
+
+- Binary output: `./build/renderer/renderer_app`
+
+### Convenience build script
+
+```bash
+./scripts/build_all.sh           # builds projection_server + renderer_app into ./build
+BUILD_TYPE=Debug ./scripts/build_all.sh
+BUILD_DIR=/tmp/pmapper ./scripts/build_all.sh
+```
+
+- Defaults to `RelWithDebInfo` into `./build`. Additional arguments are passed through to `cmake --build`.
+
+## Run
 
 - The server uses an embedded **SQLite3** database file and will create the DB on first run if it does not already exist.
 - Configuration is provided via command-line flags: `--db <path>` for the SQLite file location and `--port <port>` for the HTTP listener.
 
+```bash
+# Start the server with explicit configuration
+./build/server/projection_server --db ./data/db/projection.db --port 8080
+```
+
 Example API calls (HTTP+JSON):
 
 ```bash
+curl http://localhost:8080/renderer/ping
+
 curl -X POST http://localhost:8080/feeds \
   -H "Content-Type: application/json" \
   -d '{"id":"feed-1","name":"Camera","type":"Camera","configJson":"{}"}'
@@ -124,19 +158,19 @@ curl http://localhost:8080/scenes
 
 ### Renderer integration
 
-Two long-running processes work together: the **server** (`projection_server`) and the **renderer** (`projection_renderer`).
+Two long-running processes work together: the **server** (`projection_server`) and the **renderer** (`renderer_app`).
 
 - **Default ports**: HTTP API on **8080**; renderer TCP control on **5050**.
 - **Start the renderer** (in a separate terminal):
 
   ```bash
-  ./renderer/projection_renderer --port 5050
+  ./build/renderer/renderer_app --port 5050
   ```
 
 - **Start the server** and point it at the renderer:
 
   ```bash
-  ./server/projection_server \
+  ./build/server/projection_server \
     --db ./data/db/projection.db \
     --port 8080 \
     --renderer-host 127.0.0.1 \
@@ -163,20 +197,19 @@ Follow this minimal recipe to see the full end-to-end chain (server + renderer +
 
 1. **Build both binaries**
    ```bash
-   cmake -S . -B .
-   cmake --build .
+   ./scripts/build_all.sh
    ```
 
 2. **Prepare demo assets** – place two small MP4 clips at `./data/assets/clipA.mp4` and `./data/assets/clipB.mp4`.
 
 3. **Start the renderer** (listens for control protocol commands on TCP port 5050 by default):
    ```bash
-   ./renderer/projection_renderer --port 5050
+   ./build/renderer/renderer_app --port 5050
    ```
 
 4. **Start the server** (HTTP API on 8080; configured to talk to the renderer at 127.0.0.1:5050):
    ```bash
-   ./server/projection_server \
+   ./build/server/projection_server \
      --db ./data/db/projection.db \
      --port 8080 \
      --renderer-host 127.0.0.1 \

@@ -1,8 +1,11 @@
 #pragma once
 
+#include <atomic>
 #include <cmath>
+#include <csignal>
 #include <iostream>
 #include <memory>
+#include <thread>
 #include <string>
 #include <vector>
 
@@ -160,13 +163,26 @@ class ofxFft {
 inline void ofSetupOpenGL(int /*w*/, int /*h*/, int /*screenMode*/) {}
 
 inline int ofRunApp(ofBaseApp* app) {
-  if (app) {
-    app->setup();
-    // Run a tiny loop to satisfy the interface; real rendering would have an event loop.
+  static std::atomic<bool> keepRunning{true};
+
+  auto signalHandler = [](int) { keepRunning.store(false); };
+  std::signal(SIGINT, signalHandler);
+  std::signal(SIGTERM, signalHandler);
+
+  if (!app) {
+    return 0;
+  }
+
+  keepRunning.store(true);
+  app->setup();
+
+  while (keepRunning.load()) {
     app->update();
     app->draw();
-    app->exit();
+    std::this_thread::sleep_for(std::chrono::milliseconds(16));
   }
+
+  app->exit();
   delete app;
   return 0;
 }
