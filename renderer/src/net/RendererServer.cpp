@@ -44,7 +44,7 @@ RendererMessage makeErrorMessage(const std::string& commandId, const std::string
   return message;
 }
 
-RendererServer::RendererServer(RendererCommandHandler& handler) : handler_(handler) {}
+RendererServer::RendererServer(RendererCommandHandler& handler, bool verbose) : handler_(handler), verbose_(verbose) {}
 
 RendererServer::~RendererServer() { stop(); }
 
@@ -109,7 +109,9 @@ void RendererServer::run(int port) {
       throw std::runtime_error("Failed to listen on socket: " + std::string(strerror(errno)));
     }
 
-    std::cerr << "RendererServer listening on 127.0.0.1:" << port_ << std::endl;
+    if (verbose_) {
+      std::cerr << "RendererServer listening on 127.0.0.1:" << port_ << std::endl;
+    }
 
     while (running_) {
       int client = accept(serverFd_, nullptr, nullptr);
@@ -120,7 +122,9 @@ void RendererServer::run(int port) {
         continue;
       }
 
-      std::cerr << "RendererServer accepted client" << std::endl;
+      if (verbose_) {
+        std::cerr << "RendererServer accepted client" << std::endl;
+      }
       {
         std::lock_guard<std::mutex> lock(socketMutex_);
         clientFd_ = client;
@@ -128,7 +132,9 @@ void RendererServer::run(int port) {
 
       handleClient(client);
       closeClientSocket();
-      std::cerr << "RendererServer closed client" << std::endl;
+      if (verbose_) {
+        std::cerr << "RendererServer closed client" << std::endl;
+      }
     }
   } catch (const std::exception& ex) {
     running_ = false;
@@ -136,14 +142,18 @@ void RendererServer::run(int port) {
       std::lock_guard<std::mutex> lock(errorMutex_);
       lastError_ = ex.what();
     }
-    std::cerr << "RendererServer failed: " << ex.what() << std::endl;
+    if (verbose_) {
+      std::cerr << "RendererServer failed: " << ex.what() << std::endl;
+    }
   } catch (...) {
     running_ = false;
     {
       std::lock_guard<std::mutex> lock(errorMutex_);
       lastError_ = "Unknown error";
     }
-    std::cerr << "RendererServer failed with unknown error" << std::endl;
+    if (verbose_) {
+      std::cerr << "RendererServer failed with unknown error" << std::endl;
+    }
   }
 }
 
@@ -157,7 +167,9 @@ void RendererServer::handleClient(int clientFd) {
     if (received <= 0) {
       break;
     }
-    std::cerr << "RendererServer read " << received << " bytes" << std::endl;
+    if (verbose_) {
+      std::cerr << "RendererServer read " << received << " bytes" << std::endl;
+    }
     buffer.append(data, static_cast<size_t>(received));
 
     size_t newlinePos;
@@ -176,11 +188,15 @@ void RendererServer::handleClient(int clientFd) {
 
 void RendererServer::processLine(const std::string& line) {
   try {
-    std::cerr << "RendererServer received: " << line << std::endl;
+    if (verbose_) {
+      std::cerr << "RendererServer received: " << line << std::endl;
+    }
     auto message = parseRendererMessageLine(line);
     handler_.handle(message);
     sendMessage(makeAckMessage(message.commandId));
-    std::cerr << "RendererServer sent Ack for " << message.commandId << std::endl;
+    if (verbose_) {
+      std::cerr << "RendererServer sent Ack for " << message.commandId << std::endl;
+    }
   } catch (const std::exception& ex) {
     std::string commandId;
     try {
@@ -191,7 +207,9 @@ void RendererServer::processLine(const std::string& line) {
     } catch (...) {
     }
     sendMessage(makeErrorMessage(commandId, ex.what()));
-    std::cerr << "RendererServer sent Error for " << commandId << ": " << ex.what() << std::endl;
+    if (verbose_) {
+      std::cerr << "RendererServer sent Error for " << commandId << ": " << ex.what() << std::endl;
+    }
   }
 }
 

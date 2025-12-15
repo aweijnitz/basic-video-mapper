@@ -4,6 +4,7 @@
 #include "http/HttpServer.h"
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
+#include "repo/CueRepository.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
@@ -45,10 +46,11 @@ struct TestServerContext {
     db::SqliteConnection connection;
     repo::FeedRepository feedRepo;
     repo::SceneRepository sceneRepo;
+    repo::CueRepository cueRepo;
     http::HttpServer httpServer;
 
     explicit TestServerContext(const std::string& dbPath)
-        : feedRepo(connection), sceneRepo(connection), httpServer(feedRepo, sceneRepo, nullptr) {
+        : feedRepo(connection), sceneRepo(connection), cueRepo(connection), httpServer(feedRepo, sceneRepo, cueRepo, nullptr) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }
@@ -114,6 +116,32 @@ std::string feedBody() {
 std::string sceneBody() {
     nlohmann::json scene{{"id", "1"}, {"name", "Main"}, {"description", "Test scene"}, {"surfaces", nlohmann::json::array()}};
     return scene.dump();
+}
+
+std::string sceneWithSurfaceBody(const std::string& sceneId, const std::string& feedId) {
+    nlohmann::json scene{
+        {"id", sceneId},
+        {"name", "Main"},
+        {"description", "With surface"},
+        {"surfaces",
+         {{{"id", "s1"},
+           {"name", "surf"},
+           {"vertices", {{{"x", 0}, {"y", 0}}, {{"x", 1}, {"y", 0}}, {{"x", 0}, {"y", 1}}}},
+           {"feedId", feedId},
+           {"opacity", 1.0},
+           {"brightness", 1.0},
+           {"blendMode", "Normal"},
+           {"zOrder", 0}}}}};
+    return scene.dump();
+}
+
+std::string cueBody(const std::string& cueId, const std::string& sceneId, const std::string& surfaceId) {
+    nlohmann::json cue{{"id", cueId},
+                       {"name", "CueName"},
+                       {"sceneId", sceneId},
+                       {"surfaceOpacities", {{{"surfaceId", surfaceId}, {"value", 1.0}}}},
+                       {"surfaceBrightnesses", {{{"surfaceId", surfaceId}, {"value", 1.0}}}}};
+    return cue.dump();
 }
 
 }  // namespace
@@ -202,6 +230,84 @@ TEST_CASE("HTTP API validates required fields", "[http][integration]") {
     auto postRes = client->Post("/feeds", badFeed.dump(), "application/json");
     REQUIRE(postRes != nullptr);
     REQUIRE(postRes->status == 400);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST_CASE("HTTP API prevents deleting feeds referenced by scenes", "[http][integration]") {
+    auto dbPath = tempDbPath("http_api_feed_delete_guard.db");
+    TestServerContext ctx(dbPath);
+    const auto port = reservePort();
+    ServerRunner runner(ctx.httpServer, port);
+
+    auto client = makeClient(port);
+    REQUIRE(waitForServer(*client, ctx.httpServer, runner));
+
+    REQUIRE(client->Post("/feeds", feedBody(), "application/json")->status == 201);
+    REQUIRE(client->Post("/scenes", sceneWithSurfaceBody("scene-guard", "1"), "application/json")->status == 201);
+
+    auto delRes = client->Delete("/feeds/1");
+    REQUIRE(delRes != nullptr);
+    REQUIRE(delRes->status == 400);
+    REQUIRE(delRes->body.find("referenced by scene") != std::string::npos);
+    std::filesystem::remove(dbPath);
+}
+
+TEST_CASE("HTTP API prevents deleting scenes referenced by cues", "[http][integration]") {
+    auto dbPath = tempDbPath("http_api_scene_delete_guard.db");
+    TestServerContext ctx(dbPath);
+    const auto port = reservePort();
+    ServerRunner runner(ctx.httpServer, port);
+
+    auto client = makeClient(port);
+    REQUIRE(waitForServer(*client, ctx.httpServer, runner));
+
+    REQUIRE(client->Post("/feeds", feedBody(), "application/json")->status == 201);
+    REQUIRE(client->Post("/scenes", sceneWithSurfaceBody("scene-guard", "1"), "application/json")->status == 201);
+    auto cueRes = client->Post("/cues", cueBody("cue-1", "scene-guard", "s1"), "application/json");
+    REQUIRE(cueRes != nullptr);
+    REQUIRE(cueRes->status == 201);
+
+    auto delRes = client->Delete("/scenes/scene-guard");
+    REQUIRE(delRes != nullptr);
+    REQUIRE(delRes->status == 400);
+    REQUIRE(delRes->body.find("referenced by cue") != std::string::npos);
+    std::filesystem::remove(dbPath);
+}
+
+TEST_CASE("HTTP API supports cue CRUD", "[http][integration]") {
+    auto dbPath = tempDbPath("http_api_cues_crud.db");
+    TestServerContext ctx(dbPath);
+    const auto port = reservePort();
+    ServerRunner runner(ctx.httpServer, port);
+
+    auto client = makeClient(port);
+    REQUIRE(waitForServer(*client, ctx.httpServer, runner));
+
+    REQUIRE(client->Post("/feeds", feedBody(), "application/json")->status == 201);
+    REQUIRE(client->Post("/scenes", sceneWithSurfaceBody("scene-1", "1"), "application/json")->status == 201);
+
+    auto createRes = client->Post("/cues", cueBody("cue-1", "scene-1", "s1"), "application/json");
+    REQUIRE(createRes != nullptr);
+    REQUIRE(createRes->status == 201);
+
+    auto listRes = client->Get("/cues");
+    REQUIRE(listRes != nullptr);
+    REQUIRE(listRes->status == 200);
+    auto cues = nlohmann::json::parse(listRes->body);
+    REQUIRE(cues.is_array());
+    REQUIRE(!cues.empty());
+
+    auto updateBody = cueBody("cue-1", "scene-1", "s1");
+    auto updateJson = nlohmann::json::parse(updateBody);
+    updateJson["name"] = "UpdatedCue";
+    auto updateRes = client->Put("/cues/cue-1", updateJson.dump(), "application/json");
+    REQUIRE(updateRes != nullptr);
+    REQUIRE(updateRes->status == 200);
+
+    auto deleteRes = client->Delete("/cues/cue-1");
+    REQUIRE(deleteRes != nullptr);
+    REQUIRE(deleteRes->status == 204);
 
     std::filesystem::remove(dbPath);
 }

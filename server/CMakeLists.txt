@@ -38,6 +38,8 @@ add_library(projection_server_lib
     ${SERVER_SOURCE_DIR}/repo/SurfaceRepository.h
     ${SERVER_SOURCE_DIR}/repo/SceneRepository.cpp
     ${SERVER_SOURCE_DIR}/repo/SceneRepository.h
+    ${SERVER_SOURCE_DIR}/repo/CueRepository.cpp
+    ${SERVER_SOURCE_DIR}/repo/CueRepository.h
 )
 
 target_include_directories(projection_server_lib

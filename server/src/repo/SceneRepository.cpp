@@ -174,4 +174,75 @@ std::optional<core::Scene> SceneRepository::findSceneById(const core::SceneId& s
 
 bool SceneRepository::sceneExists(const core::SceneId& sceneId) { return findSceneById(sceneId).has_value(); }
 
+core::Scene SceneRepository::updateScene(const core::Scene& scene) {
+    sqlite3* handle = connection_.getHandle();
+    if (handle == nullptr) {
+        throw std::runtime_error("SQLite connection is not open");
+    }
+    if (scene.getId().value.empty()) {
+        throw std::runtime_error("Scene id must not be empty for update");
+    }
+
+    const char* sql = "UPDATE scenes SET name=?, description=? WHERE id=?;";
+    sqlite3_stmt* stmt = nullptr;
+    int result = sqlite3_prepare_v2(handle, sql, -1, &stmt, nullptr);
+    if (result != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare scene update statement: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    result = sqlite3_bind_text(stmt, 1, scene.getName().c_str(), -1, SQLITE_TRANSIENT);
+    result |= sqlite3_bind_text(stmt, 2, scene.getDescription().c_str(), -1, SQLITE_TRANSIENT);
+    long long idValue = parseId(scene.getId());
+    result |= sqlite3_bind_int64(stmt, 3, idValue);
+    if (result != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to bind scene update fields: " + std::string(sqlite3_errmsg(handle)));
+    }
+    result = sqlite3_step(stmt);
+    if (result != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to update scene: " + std::string(sqlite3_errmsg(handle)));
+    }
+    sqlite3_finalize(stmt);
+
+    // Replace surfaces: delete and re-insert
+    repo::SurfaceRepository surfaceRepo(connection_);
+    surfaceRepo.deleteSurfacesForScene(scene.getId());
+    for (const auto& surface : scene.getSurfaces()) {
+        surfaceRepo.createSurface(surface, scene.getId());
+    }
+    return scene;
+}
+
+void SceneRepository::deleteScene(const core::SceneId& sceneId) {
+    sqlite3* handle = connection_.getHandle();
+    if (handle == nullptr) {
+        throw std::runtime_error("SQLite connection is not open");
+    }
+
+    const char* sql = "DELETE FROM scenes WHERE id=?;";
+    sqlite3_stmt* stmt = nullptr;
+    int result = sqlite3_prepare_v2(handle, sql, -1, &stmt, nullptr);
+    if (result != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare scene delete statement: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    long long idValue = parseId(sceneId);
+    result = sqlite3_bind_int64(stmt, 1, idValue);
+    if (result != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to bind scene id for delete: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    result = sqlite3_step(stmt);
+    if (result != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to delete scene: " + std::string(sqlite3_errmsg(handle)));
+    }
+    sqlite3_finalize(stmt);
+
+    repo::SurfaceRepository surfaceRepo(connection_);
+    surfaceRepo.deleteSurfacesForScene(sceneId);
+}
+
 }  // namespace projection::server::repo

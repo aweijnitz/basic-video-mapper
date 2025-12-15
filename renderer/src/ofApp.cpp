@@ -11,23 +11,12 @@
 
 using projection::core::RendererMessageType;
 
-namespace {
-int resolvePort() {
-  const char* envPort = std::getenv("RENDERER_PORT");
-  if (envPort) {
-    try {
-      return std::stoi(envPort);
-    } catch (...) {
-      std::cerr << "Invalid RENDERER_PORT value, defaulting to 5050" << std::endl;
-    }
-  }
-  return 5050;
-}
-}
-
-ofApp::ofApp() : server_(*this), port_(resolvePort()) {}
+ofApp::ofApp(int port, bool verbose) : server_(*this, verbose), port_(port), verbose_(verbose) {}
 
 void ofApp::setup() {
+  if (verbose_) {
+    std::cerr << "[renderer] starting on port " << port_ << std::endl;
+  }
   server_.start(port_);
 
   midiIn_.openPort(0);
@@ -39,6 +28,9 @@ void ofApp::setup() {
   const int bufferSize = 512;
   soundStream_.setup(this, outputChannels, inputChannels, sampleRate, bufferSize, 4);
   fft_ = ofxFft::create(bufferSize);
+  if (verbose_) {
+    std::cerr << "[renderer] audio/midi initialized" << std::endl;
+  }
 }
 
 void ofApp::update() {
@@ -168,7 +160,7 @@ void ofApp::draw() {
 }
 
 void ofApp::audioIn(ofSoundBuffer& input) {
-  const int channels = std::max(1, input.getNumChannels());
+  const int channels = std::max<int>(1, input.getNumChannels());
   std::vector<float> mono;
   mono.reserve(static_cast<size_t>(input.getNumFrames()));
   for (int i = 0; i < input.getNumFrames(); ++i) {
@@ -216,6 +208,10 @@ void ofApp::processMessage(const projection::core::RendererMessage& message) {
       }
       break;
     case RendererMessageType::LoadSceneDefinition:
+      if (verbose_) {
+        std::cerr << "[renderer] LoadSceneDefinition with scene " << message.loadSceneDefinition->scene.getId().value
+                  << " feeds=" << message.loadSceneDefinition->feeds.size() << std::endl;
+      }
       renderState_.loadSceneDefinition(message.loadSceneDefinition->scene, message.loadSceneDefinition->feeds);
       {
         std::lock_guard<std::mutex> lock(stateMutex_);

@@ -108,6 +108,26 @@ TEST_CASE("Cue round-trip serialization", "[serialization]") {
   }
 }
 
+TEST_CASE("Feed configJson accepts string or object", "[serialization]") {
+  json feedWithString = {
+      {"id", "feed-1"},
+      {"name", "Clip"},
+      {"type", "VideoFile"},
+      {"configJson", "{\"filePath\":\"data/assets/clipA.mp4\"}"},
+  };
+  Feed parsedString = feedWithString.get<Feed>();
+  REQUIRE(parsedString.getConfigJson() == "{\"filePath\":\"data/assets/clipA.mp4\"}");
+
+  json feedWithObject = {
+      {"id", "feed-2"},
+      {"name", "Clip"},
+      {"type", "VideoFile"},
+      {"configJson", json{{"filePath", "data/assets/clipB.mp4"}}},
+  };
+  Feed parsedObject = feedWithObject.get<Feed>();
+  REQUIRE(parsedObject.getConfigJson() == "{\"filePath\":\"data/assets/clipB.mp4\"}");
+}
+
 TEST_CASE("Invalid enum strings throw", "[serialization][negative]") {
   json invalidFeed = {{"id", "feed-1"},
                       {"name", "Invalid"},
@@ -157,4 +177,3 @@ TEST_CASE("Type mismatches throw", "[serialization][negative]") {
                       {"zOrder", 0}};
   expectRuntimeError([&]() { badVertices.get<Surface>(); });
 }
-

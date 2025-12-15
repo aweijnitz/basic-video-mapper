@@ -3,6 +3,7 @@
 #include "http/HttpServer.h"
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
+#include "repo/CueRepository.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
@@ -20,6 +21,7 @@ using projection::server::db::SqliteConnection;
 using projection::server::http::HttpServer;
 using projection::server::repo::FeedRepository;
 using projection::server::repo::SceneRepository;
+using projection::server::repo::CueRepository;
 
 namespace {
 
@@ -47,10 +49,11 @@ struct TestServerContext {
     SqliteConnection connection;
     FeedRepository feedRepo;
     SceneRepository sceneRepo;
+    CueRepository cueRepo;
     HttpServer httpServer;
 
     explicit TestServerContext(const std::string& dbPath)
-        : feedRepo(connection), sceneRepo(connection), httpServer(feedRepo, sceneRepo, nullptr) {
+        : feedRepo(connection), sceneRepo(connection), cueRepo(connection), httpServer(feedRepo, sceneRepo, cueRepo, nullptr) {
         connection.open(dbPath);
         SchemaMigrations::applyMigrations(connection);
     }

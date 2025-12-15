@@ -6,13 +6,14 @@
 #include <projection/core/Feed.h>
 #include <projection/core/Scene.h>
 
-#include "openFrameworksStub/ofMain.h"
+#include "of_compat.h"
 
 namespace projection::renderer {
 
 struct VideoFeedResource {
   projection::core::FeedId id;
   ofVideoPlayer player;
+  std::string filePath;
 };
 
 // Extracts the configured file paths for video feeds.
@@ -38,4 +39,3 @@ class RenderState {
 };
 
 }  // namespace projection::renderer
-

@@ -19,6 +19,8 @@ public:
     std::vector<core::Scene> listScenes();
 
     std::optional<core::Scene> findSceneById(const core::SceneId& sceneId);
+    core::Scene updateScene(const core::Scene& scene);
+    void deleteScene(const core::SceneId& sceneId);
 
     bool sceneExists(const core::SceneId& sceneId);
 

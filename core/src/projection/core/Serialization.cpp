@@ -136,7 +136,16 @@ void from_json(const json& j, Feed& feed) {
   const auto id = requireString(j, "id");
   const auto name = requireString(j, "name");
   const auto typeStr = requireString(j, "type");
-  const auto config = requireString(j, "configJson");
+  const auto& configField = requireField<json>(j, "configJson");
+  std::string config;
+  if (configField.is_string()) {
+    config = configField.get<std::string>();
+  } else if (configField.is_object() || configField.is_array()) {
+    // Accept a nested JSON object/array and store its serialized form
+    config = configField.dump();
+  } else {
+    throw std::runtime_error("Field 'configJson' must be a string or object");
+  }
 
   feed = Feed(FeedId{id}, name, parseFeedTypeString(typeStr), config);
 }
@@ -238,4 +247,3 @@ void from_json(const json& j, Cue& cue) {
 }
 
 }  // namespace projection::core
-

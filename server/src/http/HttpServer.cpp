@@ -17,11 +17,14 @@ namespace projection::server::http {
 using nlohmann::json;
 
 HttpServer::HttpServer(repo::FeedRepository& feedRepository, repo::SceneRepository& sceneRepository,
-                       std::shared_ptr<renderer::RendererClient> rendererClient)
+                       repo::CueRepository& cueRepository, std::shared_ptr<renderer::RendererClient> rendererClient,
+                       bool verbose)
     : feedRepository_(feedRepository),
       sceneRepository_(sceneRepository),
+      cueRepository_(cueRepository),
       rendererClient_(std::move(rendererClient)),
-      server_(std::make_unique<::httplib::Server>()) {
+      server_(std::make_unique<::httplib::Server>()),
+      verbose_(verbose) {
     registerRoutes();
 }
 
@@ -36,13 +39,67 @@ void HttpServer::stop() { server_->stop(); }
 bool HttpServer::isRunning() const { return server_ && server_->is_running(); }
 
 void HttpServer::registerRoutes() {
+    auto log = [&](const std::string& msg) {
+        if (verbose_) {
+            std::cerr << "[http] " << msg << std::endl;
+        }
+    };
+    (void)log;
+
     server_->Post("/feeds", [this](const ::httplib::Request& req, ::httplib::Response& res) {
         try {
             auto body = json::parse(req.body);
             auto feed = body.get<core::Feed>();
             auto created = feedRepository_.createFeed(feed);
+            if (verbose_) {
+                std::cerr << "[http] Created feed id=" << created.getId().value << " name=" << created.getName()
+                          << std::endl;
+            }
             res.status = 201;
             res.set_content(json(created).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Put(R"(/feeds/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing feed id");
+                return;
+            }
+            auto body = json::parse(req.body);
+            auto feed = body.get<core::Feed>();
+            feed.setId(core::FeedId{req.matches[1]});
+            auto updated = feedRepository_.updateFeed(feed);
+            res.status = 200;
+            res.set_content(json(updated).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Delete(R"(/feeds/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing feed id");
+                return;
+            }
+            core::FeedId feedId{req.matches[1]};
+            // Guard: ensure no surfaces reference this feed
+            auto scenes = sceneRepository_.listScenes();
+            for (const auto& scene : scenes) {
+                for (const auto& surface : scene.getSurfaces()) {
+                    if (surface.getFeedId() == feedId) {
+                        respondWithError(res, 400,
+                                         "Cannot delete feed " + feedId.value + " because it is referenced by scene " +
+                                             scene.getId().value + ".");
+                        return;
+                    }
+                }
+            }
+            feedRepository_.deleteFeed(feedId);
+            res.status = 204;
         } catch (const std::exception& ex) {
             respondWithError(res, 400, ex.what());
         }
@@ -62,6 +119,10 @@ void HttpServer::registerRoutes() {
         try {
             auto body = json::parse(req.body);
             auto scene = body.get<core::Scene>();
+            if (verbose_) {
+                std::cerr << "[http] Received scene create id=" << scene.getId().value << " name=" << scene.getName()
+                          << " surfaces=" << scene.getSurfaces().size() << std::endl;
+            }
 
             auto feeds = feedRepository_.listFeeds();
             std::string error;
@@ -71,8 +132,132 @@ void HttpServer::registerRoutes() {
             }
 
             auto created = sceneRepository_.createScene(scene);
+            if (verbose_) {
+                std::cerr << "[http] Created scene id=" << created.getId().value << std::endl;
+            }
             res.status = 201;
             res.set_content(json(created).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Put(R"(/scenes/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing scene id");
+                return;
+            }
+            auto body = json::parse(req.body);
+            auto scene = body.get<core::Scene>();
+            scene.setId(core::SceneId{req.matches[1]});
+
+            auto feeds = feedRepository_.listFeeds();
+            std::string error;
+            if (!core::validateSceneFeeds(scene, feeds, error)) {
+                respondWithError(res, 400, error);
+                return;
+            }
+
+            auto updated = sceneRepository_.updateScene(scene);
+            res.status = 200;
+            res.set_content(json(updated).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Delete(R"(/scenes/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing scene id");
+                return;
+            }
+            core::SceneId sceneId{req.matches[1]};
+            // Guard: ensure no cues reference this scene
+            auto cues = cueRepository_.listCues();
+            for (const auto& cue : cues) {
+                if (cue.getSceneId() == sceneId) {
+                    respondWithError(res, 400,
+                                     "Cannot delete scene " + sceneId.value + " because it is referenced by cue " +
+                                         cue.getId().value + ".");
+                    return;
+                }
+            }
+            sceneRepository_.deleteScene(sceneId);
+            res.status = 204;
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Get("/cues", [this](const ::httplib::Request&, ::httplib::Response& res) {
+        try {
+            const auto cues = cueRepository_.listCues();
+            res.status = 200;
+            res.set_content(json(cues).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 500, ex.what());
+        }
+    });
+
+    server_->Post("/cues", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            auto cue = body.get<core::Cue>();
+            auto scene = sceneRepository_.findSceneById(cue.getSceneId());
+            if (!scene.has_value()) {
+                respondWithError(res, 400, "Scene does not exist for cue");
+                return;
+            }
+            std::string error;
+            if (!core::validateCueForScene(cue, *scene, error)) {
+                respondWithError(res, 400, error);
+                return;
+            }
+            auto created = cueRepository_.createCue(cue);
+            res.status = 201;
+            res.set_content(json(created).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Put(R"(/cues/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing cue id");
+                return;
+            }
+            auto body = json::parse(req.body);
+            auto cue = body.get<core::Cue>();
+            cue.setId(core::CueId{req.matches[1]});
+            auto scene = sceneRepository_.findSceneById(cue.getSceneId());
+            if (!scene.has_value()) {
+                respondWithError(res, 400, "Scene does not exist for cue");
+                return;
+            }
+            std::string error;
+            if (!core::validateCueForScene(cue, *scene, error)) {
+                respondWithError(res, 400, error);
+                return;
+            }
+            cueRepository_.updateCue(cue);
+            res.status = 200;
+            res.set_content(json(cue).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Delete(R"(/cues/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing cue id");
+                return;
+            }
+            cueRepository_.deleteCue(core::CueId{req.matches[1]});
+            res.status = 204;
         } catch (const std::exception& ex) {
             respondWithError(res, 400, ex.what());
         }
@@ -166,6 +351,10 @@ void HttpServer::registerRoutes() {
                 return;
             }
 
+            if (verbose_) {
+                std::cerr << "[http] Forwarding scene " << sceneId.value << " to renderer with " << feeds.size()
+                          << " feeds" << std::endl;
+            }
             rendererClient_->sendLoadSceneDefinition(*scene, feeds);
             res.status = 200;
             res.set_content(json({{"status", "sent"}}).dump(), "application/json");
@@ -217,6 +406,11 @@ void HttpServer::registerRoutes() {
                 return;
             }
 
+            if (verbose_) {
+                std::cerr << "[http] Demo endpoint created scene " << createdScene.getId().value << " with feeds "
+                          << feedA.getId().value << "," << feedB.getId().value << " -> sending to renderer"
+                          << std::endl;
+            }
             rendererClient_->sendLoadSceneDefinition(createdScene, rendererFeeds);
 
             json payload{{"sceneId", createdScene.getId().value},
@@ -231,6 +425,9 @@ void HttpServer::registerRoutes() {
 }
 
 void HttpServer::respondWithError(::httplib::Response& res, int status, const std::string& message) {
+    if (verbose_) {
+        std::cerr << "[http] error " << status << ": " << message << std::endl;
+    }
     res.status = status;
     res.set_content(json({{"error", message}}).dump(), "application/json");
 }

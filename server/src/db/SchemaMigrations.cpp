@@ -48,6 +48,17 @@ CREATE TABLE IF NOT EXISTS surfaces (
 );
 )SQL";
 
+const char* kCreateCuesTable = R"SQL(
+CREATE TABLE IF NOT EXISTS cues (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    scene_id TEXT NOT NULL,
+    surface_opacities_json TEXT NOT NULL,
+    surface_brightnesses_json TEXT NOT NULL,
+    FOREIGN KEY(scene_id) REFERENCES scenes(id)
+);
+)SQL";
+
 void ensureSchemaVersionTable(sqlite3* handle) {
     char* errorMessage = nullptr;
     int result = sqlite3_exec(handle, kCreateSchemaVersion, nullptr, nullptr, &errorMessage);
@@ -79,6 +90,13 @@ void createTables(sqlite3* handle) {
         std::string error = errorMessage ? errorMessage : "Unknown error";
         sqlite3_free(errorMessage);
         throw std::runtime_error("Failed to create surfaces table: " + error);
+    }
+
+    result = sqlite3_exec(handle, kCreateCuesTable, nullptr, nullptr, &errorMessage);
+    if (result != SQLITE_OK) {
+        std::string error = errorMessage ? errorMessage : "Unknown error";
+        sqlite3_free(errorMessage);
+        throw std::runtime_error("Failed to create cues table: " + error);
     }
 }
 }  // namespace

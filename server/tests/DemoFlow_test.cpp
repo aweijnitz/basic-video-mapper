@@ -5,6 +5,7 @@
 #include "renderer/RendererClient.h"
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
+#include "repo/CueRepository.h"
 
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
@@ -193,11 +194,12 @@ struct DemoHttpContext {
     db::SqliteConnection connection;
     repo::FeedRepository feedRepo;
     repo::SceneRepository sceneRepo;
+    repo::CueRepository cueRepo;
     std::shared_ptr<renderer::RendererClient> rendererClient;
     http::HttpServer httpServer;
 
     DemoHttpContext(const std::string& dbPath, std::shared_ptr<renderer::RendererClient> client)
-        : feedRepo(connection), sceneRepo(connection), rendererClient(std::move(client)), httpServer(feedRepo, sceneRepo, rendererClient) {
+        : feedRepo(connection), sceneRepo(connection), cueRepo(connection), rendererClient(std::move(client)), httpServer(feedRepo, sceneRepo, cueRepo, rendererClient) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }

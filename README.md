@@ -221,23 +221,47 @@ Follow this minimal recipe to see the full end-to-end chain (server + renderer +
      ```bash
      # Create two VideoFile feeds pointing at the prepared assets
      curl -X POST http://localhost:8080/feeds -H "Content-Type: application/json" \
-       -d '{"name":"Clip A","type":"VideoFile","configJson":"{\\"filePath\\":\\"data/assets/clipA.mp4\\"}"}'
+       -d '{"id":"1","name":"Clip A","type":"VideoFile","configJson":{"filePath":"data/assets/clipA.mp4"}}'
      curl -X POST http://localhost:8080/feeds -H "Content-Type: application/json" \
-       -d '{"name":"Clip B","type":"VideoFile","configJson":"{\\"filePath\\":\\"data/assets/clipB.mp4\\"}"}'
+       -d '{"id":"2","name":"Clip B","type":"VideoFile","configJson":{"filePath":"data/assets/clipB.mp4"}}'
 
      # Create a scene with two surfaces that reference the feeds and include quad vertices
      curl -X POST http://localhost:8080/scenes -H "Content-Type: application/json" \
-       -d '{"name":"Two Video Demo","description":"M4 walkthrough","surfaces":[{"id":"surface-a","name":"Left Quad","vertices":[{"x":-0.8,"y":-0.6},{"x":-0.1,"y":-0.5},{"x":-0.1,"y":0.2},{"x":-0.8,"y":0.1}],"feedId":"1"},{"id":"surface-b","name":"Right Quad","vertices":[{"x":0.1,"y":-0.3},{"x":0.8,"y":-0.2},{"x":0.7,"y":0.5},{"x":0.0,"y":0.4}],"feedId":"2"}]}'
+       -d '{"id":"1","name":"Two Video Demo","description":"M4 walkthrough","surfaces":[{"id":"surface-a","name":"Left Quad","vertices":[{"x":-0.8,"y":-0.6},{"x":-0.1,"y":-0.5},{"x":-0.1,"y":0.2},{"x":-0.8,"y":0.1}],"feedId":"1","opacity":1.0,"brightness":1.0,"blendMode":"Normal","zOrder":0},{"id":"surface-b","name":"Right Quad","vertices":[{"x":0.1,"y":-0.3},{"x":0.8,"y":-0.2},{"x":0.7,"y":0.5},{"x":0.0,"y":0.4}],"feedId":"2","opacity":1.0,"brightness":1.0,"blendMode":"Normal","zOrder":1}]}'
 
      # Send the full Scene + Feeds payload to the renderer
      curl -X POST http://localhost:8080/renderer/loadScene -H "Content-Type: application/json" -d '{"sceneId":"1"}'
      ```
+     (`configJson` accepts either a JSON string or an inline JSON object; it is stored as a serialized string internally.)
 
    - **Demo helper endpoint** (auto-creates feeds/surfaces/scene and sends LoadSceneDefinition):
      ```bash
-     curl -X POST http://localhost:8080/demo/two-video-test
+     curl -X POST http://localhost:8080/demo/two-video-test -d ''
      ```
      The JSON response includes the created feed and scene IDs.
+     Note: cpp-httplib requires a `Content-Length` header for POST; `-d ''` adds an explicit empty body.
+
+7. **Verbose logging (optional)**
+   - Server: add `--verbose` to the args (e.g., `SERVER_ARGS="--verbose" ./scripts/mapper.sh start`).
+   - Renderer: start with `--verbose` (e.g., `RENDERER_ARGS="--verbose" ./scripts/mapper.sh start`).
+   - Verbose mode prints request handling, DB actions, renderer sends/receives, and scene load info.
+
+### Quick renderer window sanity check
+
+Run a minimal foreground app that opens a window and draws text (useful to confirm the renderer can show a window before testing video). Requires a local openFrameworks install; configure CMake with it:
+
+```bash
+cmake -S . -B build -DUSE_OPENFRAMEWORKS=ON -DOPENFRAMEWORKS_DIR=/Users/aweijnitz/openFrameworks/of_v0.12.1_osx_release
+cmake --build build
+```
+
+```bash
+./build/renderer/renderer_hello --verbose --message "Hello world" --quit-after 5
+```
+
+Omit `--quit-after` to leave the window open and close it manually. The app supports `--message "<text>"` and `--verbose`.
+
+Note: you can also build server+renderer in one step with openFrameworks via `./scripts/build_all.sh --with-of` (set `OPENFRAMEWORKS_DIR` if different from the default).
 
 6. **Observe on the projector/render window:**
    - Two separate videos should appear, each pinned to its own quad.

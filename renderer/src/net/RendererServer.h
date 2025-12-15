@@ -23,7 +23,7 @@ class RendererCommandHandler {
 
 class RendererServer {
  public:
-  explicit RendererServer(RendererCommandHandler& handler);
+  explicit RendererServer(RendererCommandHandler& handler, bool verbose = false);
   ~RendererServer();
 
   RendererServer(const RendererServer&) = delete;
@@ -46,6 +46,7 @@ class RendererServer {
   RendererCommandHandler& handler_;
   std::atomic<bool> running_{false};
   std::string lastError_;
+  bool verbose_{false};
   int serverFd_{-1};
   int clientFd_{-1};
   int port_{0};

@@ -13,12 +13,16 @@ namespace projection::server {
 //   --renderer-host=<host>
 //   --renderer-port <port> : Renderer TCP port.
 //   --renderer-port=<port>
+//   --renderer-connect-retries <n> : Attempts to connect to renderer (default 30, 2s apart).
+//   --verbose             : Enable verbose logging to stdout/stderr.
 //
 // Defaults:
 //   databasePath = "./data/db/projection.db"
 //   httpPort = 8080
 //   rendererHost = "127.0.0.1"
 //   rendererPort = 5050
+//   rendererConnectRetries = 30
+//   verbose = false
 ServerConfig parseServerConfig(int argc, char* argv[]);
 
 }  // namespace projection::server

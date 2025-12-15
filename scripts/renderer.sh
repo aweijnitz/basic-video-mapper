@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Starts the renderer_app in the foreground (useful because the window must stay attached).
+#
+# Usage:
+#   ./scripts/renderer.sh                 # uses defaults
+#   ./scripts/renderer.sh --verbose       # enable verbose logging
+# Environment overrides:
+#   BUILD_DIR       Build dir containing renderer/ (default: <repo>/build)
+#   RENDERER_BIN    Path to renderer_app (default: ${BUILD_DIR}/renderer/renderer_app)
+#   RENDERER_PORT   Control port (default: 5050)
+#   RENDERER_ARGS   Extra args (e.g., "--verbose")
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BUILD_DIR="${BUILD_DIR:-"${ROOT_DIR}/build"}"
+RENDERER_BIN="${RENDERER_BIN:-${BUILD_DIR}/renderer/renderer_app}"
+RENDERER_PORT="${RENDERER_PORT:-5050}"
+
+require_binary() {
+  local bin="$1"
+  local name="$2"
+  if [[ ! -x "$bin" ]]; then
+    echo "Missing $name binary at: $bin"
+    echo "Build it first (e.g., ./scripts/build_all.sh --with-of)."
+    exit 1
+  fi
+}
+
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --verbose) ARGS+=("--verbose") ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+
+EXTRA_RENDERER_ARGS=()
+if [[ -n "${RENDERER_ARGS:-}" ]]; then
+  # shellcheck disable=SC2206
+  EXTRA_RENDERER_ARGS=(${RENDERER_ARGS})
+fi
+
+CMD_ARGS=("${ARGS[@]}")
+if [[ ${#EXTRA_RENDERER_ARGS[@]} -gt 0 ]]; then
+  CMD_ARGS+=("${EXTRA_RENDERER_ARGS[@]}")
+fi
+
+require_binary "$RENDERER_BIN" "renderer"
+echo "Starting renderer in foreground on port ${RENDERER_PORT}..."
+RENDERER_PORT="${RENDERER_PORT}" exec "$RENDERER_BIN" "${CMD_ARGS[@]}"

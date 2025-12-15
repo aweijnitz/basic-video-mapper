@@ -15,6 +15,7 @@ public:
     core::Surface createSurface(const core::Surface& surface, const core::SceneId& sceneId);
 
     std::vector<core::Surface> listSurfacesForScene(const core::SceneId& sceneId);
+    void deleteSurfacesForScene(const core::SceneId& sceneId);
 
 private:
     db::SqliteConnection& connection_;

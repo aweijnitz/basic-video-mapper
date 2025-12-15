@@ -163,4 +163,31 @@ std::vector<core::Surface> SurfaceRepository::listSurfacesForScene(const core::S
     return surfaces;
 }
 
+void SurfaceRepository::deleteSurfacesForScene(const core::SceneId& sceneId) {
+    sqlite3* handle = connection_.getHandle();
+    if (handle == nullptr) {
+        throw std::runtime_error("SQLite connection is not open");
+    }
+
+    const char* sql = "DELETE FROM surfaces WHERE scene_id = ?;";
+    sqlite3_stmt* stmt = nullptr;
+    int result = sqlite3_prepare_v2(handle, sql, -1, &stmt, nullptr);
+    if (result != SQLITE_OK) {
+        throw std::runtime_error("Failed to prepare surface delete statement: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    result = sqlite3_bind_text(stmt, 1, sceneId.value.c_str(), -1, SQLITE_TRANSIENT);
+    if (result != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to bind scene id for surface delete: " + std::string(sqlite3_errmsg(handle)));
+    }
+
+    result = sqlite3_step(stmt);
+    if (result != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to delete surfaces: " + std::string(sqlite3_errmsg(handle)));
+    }
+    sqlite3_finalize(stmt);
+}
+
 }  // namespace projection::server::repo

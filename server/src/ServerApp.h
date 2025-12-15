@@ -1,7 +1,9 @@
 #pragma once
 
-#include <string>
 #include <memory>
+#include <string>
+
+#include "repo/CueRepository.h"
 
 namespace projection::server::db {
 class SqliteConnection;
@@ -10,6 +12,7 @@ class SqliteConnection;
 namespace projection::server::repo {
 class FeedRepository;
 class SceneRepository;
+class CueRepository;
 }
 
 namespace projection::server::http {
@@ -27,6 +30,8 @@ struct ServerConfig {
     int httpPort;
     std::string rendererHost;
     int rendererPort;
+    bool verbose{false};
+    int rendererConnectRetries{30};
 };
 
 class ServerApp {
@@ -43,6 +48,7 @@ private:
     std::unique_ptr<db::SqliteConnection> connection_;
     std::unique_ptr<repo::FeedRepository> feedRepository_;
     std::unique_ptr<repo::SceneRepository> sceneRepository_;
+    std::unique_ptr<repo::CueRepository> cueRepository_;
     std::unique_ptr<http::HttpServer> httpServer_;
     std::shared_ptr<renderer::RendererClient> rendererClient_;
 };

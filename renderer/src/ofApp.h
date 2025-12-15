@@ -8,15 +8,17 @@
 
 #include "RenderState.h"
 #include "net/RendererServer.h"
-#include "openFrameworksStub/ofMain.h"
+#include "of_compat.h"
 #include "util/InteractionUtils.h"
 
 class ofApp : public ofBaseApp,
+#if !defined(USE_OPENFRAMEWORKS)
               public ofBaseSoundInput,
+#endif
               public ofxMidiListener,
               public projection::renderer::RendererCommandHandler {
  public:
-  ofApp();
+  explicit ofApp(int port, bool verbose = false);
 
   void setup() override;
   void update() override;
@@ -39,6 +41,7 @@ class ofApp : public ofBaseApp,
 
   projection::renderer::RendererServer server_;
   int port_;
+  bool verbose_{false};
 
   projection::renderer::RenderState renderState_{};
 
@@ -61,4 +64,3 @@ class ofApp : public ofBaseApp,
   float audioScale_{1.0f};
   float smoothedEnergy_{0.0f};
 };
-

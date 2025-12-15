@@ -11,6 +11,8 @@ constexpr const char* kDefaultDbPath = "./data/db/projection.db";
 constexpr int kDefaultPort = 8080;
 constexpr const char* kDefaultRendererHost = "127.0.0.1";
 constexpr int kDefaultRendererPort = 5050;
+constexpr bool kDefaultVerbose = false;
+constexpr int kDefaultRendererConnectRetries = 30;
 
 bool startsWith(const std::string& value, const std::string& prefix) {
     return value.rfind(prefix, 0) == 0;
@@ -39,7 +41,8 @@ std::string parseOptionValue(int& index, int argc, char* argv[], const std::stri
 }  // namespace
 
 ServerConfig parseServerConfig(int argc, char* argv[]) {
-    ServerConfig config{kDefaultDbPath, kDefaultPort, kDefaultRendererHost, kDefaultRendererPort};
+    ServerConfig config{kDefaultDbPath, kDefaultPort, kDefaultRendererHost, kDefaultRendererPort, kDefaultVerbose,
+                        kDefaultRendererConnectRetries};
 
     for (int i = 1; i < argc; ++i) {
         std::string arg(argv[i]);
@@ -65,6 +68,12 @@ ServerConfig parseServerConfig(int argc, char* argv[]) {
             config.rendererPort = parsePort(parseOptionValue(i, argc, argv, "--renderer-port"));
         } else if (startsWith(arg, "--renderer-port=")) {
             config.rendererPort = parsePort(arg.substr(16));
+        } else if (arg == "--renderer-connect-retries") {
+            config.rendererConnectRetries = parsePort(parseOptionValue(i, argc, argv, "--renderer-connect-retries"));
+        } else if (startsWith(arg, "--renderer-connect-retries=")) {
+            config.rendererConnectRetries = parsePort(arg.substr(28));
+        } else if (arg == "--verbose") {
+            config.verbose = true;
         } else {
             throw std::invalid_argument("Unknown argument: " + arg);
         }
