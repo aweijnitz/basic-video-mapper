@@ -13,6 +13,7 @@ namespace projection::server::repo {
 class FeedRepository;
 class SceneRepository;
 class CueRepository;
+class ProjectRepository;
 }
 
 namespace projection::server::http {
@@ -49,6 +50,7 @@ private:
     std::unique_ptr<repo::FeedRepository> feedRepository_;
     std::unique_ptr<repo::SceneRepository> sceneRepository_;
     std::unique_ptr<repo::CueRepository> cueRepository_;
+    std::unique_ptr<repo::ProjectRepository> projectRepository_;
     std::unique_ptr<http::HttpServer> httpServer_;
     std::shared_ptr<renderer::RendererClient> rendererClient_;
 };

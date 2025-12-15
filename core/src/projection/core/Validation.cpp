@@ -1,6 +1,7 @@
 #include "projection/core/Validation.h"
 
 #include <algorithm>
+#include <unordered_map>
 #include <utility>
 
 namespace projection::core {
@@ -67,5 +68,47 @@ bool validateCueForScene(const Cue& cue, const Scene& scene, std::string& errorM
   return true;
 }
 
-}  // namespace projection::core
+bool validateProjectCues(const Project& project, const std::vector<Cue>& cues, std::string& errorMessage) {
+  if (project.getId().value.empty()) {
+    errorMessage = "Project id must not be empty.";
+    return false;
+  }
 
+  if (project.getName().empty()) {
+    errorMessage = "Project name must not be empty.";
+    return false;
+  }
+
+  std::unordered_map<std::string, const Cue*> cueById;
+  for (const auto& cue : cues) {
+    cueById.emplace(cue.getId().value, &cue);
+  }
+
+  for (const auto& cueId : project.getCueOrder()) {
+    if (cueById.find(cueId.value) == cueById.end()) {
+      errorMessage = "Project '" + project.getId().value + "' references missing cue '" + cueId.value + "'.";
+      return false;
+    }
+  }
+
+  for (const auto channel : project.getSettings().midiChannels) {
+    if (channel < 1 || channel > 16) {
+      errorMessage = "Project '" + project.getId().value + "' has invalid MIDI channel '" + std::to_string(channel) +
+                     "'. Expected range 1-16.";
+      return false;
+    }
+  }
+
+  for (const auto& [controller, target] : project.getSettings().controllers) {
+    if (controller.empty() || target.empty()) {
+      errorMessage = "Project '" + project.getId().value +
+                     "' must not contain empty controller names or targets in settings.controllers.";
+      return false;
+    }
+  }
+
+  errorMessage.clear();
+  return true;
+}
+
+}  // namespace projection::core

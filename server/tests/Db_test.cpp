@@ -62,6 +62,24 @@ TEST_CASE("SchemaMigrations creates feeds and scenes tables", "[db][migrations]"
     sqlite3_free(errorMessage);
     REQUIRE(result == SQLITE_OK);
 
+    result = sqlite3_exec(handle, "INSERT INTO cues(id, name, scene_id, surface_opacities_json, surface_brightnesses_json) "
+                                   "VALUES('cue-1', 'Cue', '1', '[]', '[]');",
+                          nullptr, nullptr, &errorMessage);
+    sqlite3_free(errorMessage);
+    REQUIRE(result == SQLITE_OK);
+
+    result = sqlite3_exec(handle, "INSERT INTO projects(id, name, description, settings_json) "
+                                   "VALUES('proj-1', 'Project', 'desc', '{}');",
+                          nullptr, nullptr, &errorMessage);
+    sqlite3_free(errorMessage);
+    REQUIRE(result == SQLITE_OK);
+
+    result = sqlite3_exec(handle,
+                          "INSERT INTO project_cues(project_id, cue_id, position) VALUES('proj-1', 'cue-1', 0);", nullptr,
+                          nullptr, &errorMessage);
+    sqlite3_free(errorMessage);
+    REQUIRE(result == SQLITE_OK);
+
     bool sawFeed = false;
     auto feedCallback = [](void* data, int argc, char** argv, char** colNames) -> int {
         bool* found = static_cast<bool*>(data);

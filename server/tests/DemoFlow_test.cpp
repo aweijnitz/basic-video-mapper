@@ -6,6 +6,7 @@
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
 #include "repo/CueRepository.h"
+#include "repo/ProjectRepository.h"
 
 #include <atomic>
 #include <catch2/catch_test_macros.hpp>
@@ -195,11 +196,17 @@ struct DemoHttpContext {
     repo::FeedRepository feedRepo;
     repo::SceneRepository sceneRepo;
     repo::CueRepository cueRepo;
+    repo::ProjectRepository projectRepo;
     std::shared_ptr<renderer::RendererClient> rendererClient;
     http::HttpServer httpServer;
 
     DemoHttpContext(const std::string& dbPath, std::shared_ptr<renderer::RendererClient> client)
-        : feedRepo(connection), sceneRepo(connection), cueRepo(connection), rendererClient(std::move(client)), httpServer(feedRepo, sceneRepo, cueRepo, rendererClient) {
+        : feedRepo(connection),
+          sceneRepo(connection),
+          cueRepo(connection),
+          projectRepo(connection),
+          rendererClient(std::move(client)),
+          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, rendererClient) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }

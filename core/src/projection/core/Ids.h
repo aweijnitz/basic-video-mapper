@@ -45,9 +45,20 @@ struct CueId {
   bool operator<(const CueId& other) const { return value < other.value; }
 };
 
+struct ProjectId {
+  std::string value;
+
+  explicit ProjectId(std::string v = "") : value(std::move(v)) {}
+
+  bool operator==(const ProjectId& other) const { return value == other.value; }
+  bool operator!=(const ProjectId& other) const { return !(*this == other); }
+  bool operator<(const ProjectId& other) const { return value < other.value; }
+};
+
 inline SceneId makeSceneId(const std::string& raw) { return SceneId(raw); }
 inline SurfaceId makeSurfaceId(const std::string& raw) { return SurfaceId(raw); }
 inline FeedId makeFeedId(const std::string& raw) { return FeedId(raw); }
 inline CueId makeCueId(const std::string& raw) { return CueId(raw); }
+inline ProjectId makeProjectId(const std::string& raw) { return ProjectId(raw); }
 
 }  // namespace projection::core

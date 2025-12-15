@@ -22,6 +22,9 @@ TEST_CASE("Identifier wrappers compare by value", "[ids]") {
 
   CueId cue = makeCueId("cue-1");
   REQUIRE(cue.value == std::string("cue-1"));
+
+  ProjectId project = makeProjectId("proj-1");
+  REQUIRE(project == ProjectId{"proj-1"});
 }
 
 TEST_CASE("FeedType string conversion succeeds for known values", "[enums]") {

@@ -27,6 +27,7 @@ flowchart LR
 1. **Client → Server (HTTP+JSON)**: Clients call the HTTP API to manage domain objects and drive the renderer.
    - Feeds: `POST /feeds` creates a feed; `GET /feeds` lists feeds.
    - Scenes: `POST /scenes` creates a scene (validated against existing feeds); `GET /scenes` lists scenes; `GET /scenes/{id}` fetches one.
+   - Projects: `POST /projects` creates a project (ordered `cueOrder` plus settings), `GET /projects` lists projects, `GET /projects/{id}` fetches one, `PUT /projects/{id}` updates, `DELETE /projects/{id}` removes; cues used by projects cannot be deleted.
    - Renderer control: `POST /renderer/ping` issues a `Hello` control message round-trip; `POST /renderer/loadScene` asks the renderer to load a stored scene definition; `POST /demo/two-video-test` seeds demo feeds/surfaces and streams them to the renderer.
 2. **Server → SQLite**: The Server initializes a `db::SqliteConnection`, applies migrations, and persists feeds/scenes through repositories before serving HTTP (`ServerApp::run`).
 3. **Server → Renderer (TCP Control Protocol)**: `RendererClient` connects at startup, then sends control messages such as `LoadSceneDefinition` over TCP (default renderer port 5050).

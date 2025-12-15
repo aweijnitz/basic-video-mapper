@@ -5,8 +5,10 @@
 #include <chrono>
 #include <stdexcept>
 #include <sstream>
+#include <filesystem>
 #include <unordered_map>
 #include <unordered_set>
+#include <optional>
 
 #include "projection/core/Serialization.h"
 #include "projection/core/RendererProtocol.h"
@@ -17,11 +19,12 @@ namespace projection::server::http {
 using nlohmann::json;
 
 HttpServer::HttpServer(repo::FeedRepository& feedRepository, repo::SceneRepository& sceneRepository,
-                       repo::CueRepository& cueRepository, std::shared_ptr<renderer::RendererClient> rendererClient,
-                       bool verbose)
+                       repo::CueRepository& cueRepository, repo::ProjectRepository& projectRepository,
+                       std::shared_ptr<renderer::RendererClient> rendererClient, bool verbose)
     : feedRepository_(feedRepository),
       sceneRepository_(sceneRepository),
       cueRepository_(cueRepository),
+      projectRepository_(projectRepository),
       rendererClient_(std::move(rendererClient)),
       server_(std::make_unique<::httplib::Server>()),
       verbose_(verbose) {
@@ -256,6 +259,19 @@ void HttpServer::registerRoutes() {
                 respondWithError(res, 400, "Missing cue id");
                 return;
             }
+            const auto cueId = core::CueId{req.matches[1]};
+            // Guard: ensure no projects reference this cue
+            auto projects = projectRepository_.listProjects();
+            for (const auto& project : projects) {
+                for (const auto& projectCueId : project.getCueOrder()) {
+                    if (projectCueId == cueId) {
+                        respondWithError(res, 400,
+                                         "Cannot delete cue " + cueId.value + " because it is referenced by project " +
+                                             project.getId().value + ".");
+                        return;
+                    }
+                }
+            }
             cueRepository_.deleteCue(core::CueId{req.matches[1]});
             res.status = 204;
         } catch (const std::exception& ex) {
@@ -290,6 +306,89 @@ void HttpServer::registerRoutes() {
             res.set_content(json(*scene).dump(), "application/json");
         } catch (const std::exception& ex) {
             respondWithError(res, 500, ex.what());
+        }
+    });
+
+    server_->Get("/projects", [this](const ::httplib::Request&, ::httplib::Response& res) {
+        try {
+            const auto projects = projectRepository_.listProjects();
+            res.status = 200;
+            res.set_content(json(projects).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 500, ex.what());
+        }
+    });
+
+    server_->Get(R"(/projects/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing project id");
+                return;
+            }
+            auto projectId = core::ProjectId{req.matches[1]};
+            auto project = projectRepository_.findProjectById(projectId);
+            if (!project.has_value()) {
+                respondWithError(res, 404, "Project not found");
+                return;
+            }
+            res.status = 200;
+            res.set_content(json(*project).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 500, ex.what());
+        }
+    });
+
+    server_->Post("/projects", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            auto body = json::parse(req.body);
+            auto project = body.get<core::Project>();
+            auto cues = cueRepository_.listCues();
+            std::string error;
+            if (!core::validateProjectCues(project, cues, error)) {
+                respondWithError(res, 400, error);
+                return;
+            }
+            auto created = projectRepository_.createProject(project);
+            res.status = 201;
+            res.set_content(json(created).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Put(R"(/projects/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing project id");
+                return;
+            }
+            auto body = json::parse(req.body);
+            auto project = body.get<core::Project>();
+            project.setId(core::ProjectId{req.matches[1]});
+            auto cues = cueRepository_.listCues();
+            std::string error;
+            if (!core::validateProjectCues(project, cues, error)) {
+                respondWithError(res, 400, error);
+                return;
+            }
+            auto updated = projectRepository_.updateProject(project);
+            res.status = 200;
+            res.set_content(json(updated).dump(), "application/json");
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
+        }
+    });
+
+    server_->Delete(R"(/projects/(.+))", [this](const ::httplib::Request& req, ::httplib::Response& res) {
+        try {
+            if (req.matches.size() < 2) {
+                respondWithError(res, 400, "Missing project id");
+                return;
+            }
+            projectRepository_.deleteProject(core::ProjectId{req.matches[1]});
+            res.status = 204;
+        } catch (const std::exception& ex) {
+            respondWithError(res, 400, ex.what());
         }
     });
 
@@ -373,10 +472,32 @@ void HttpServer::registerRoutes() {
 
         try {
             const auto suffix = generateCommandId();
-            core::Feed feedA(core::FeedId{}, "Demo Clip A", core::FeedType::VideoFile,
-                             R"({"filePath":"data/assets/clipA.mp4"})");
-            core::Feed feedB(core::FeedId{}, "Demo Clip B", core::FeedType::VideoFile,
-                             R"({"filePath":"data/assets/clipB.mp4"})");
+
+            auto findAssetPath = [](const std::string& filename) -> std::optional<std::filesystem::path> {
+                const std::vector<std::filesystem::path> candidates = {
+                    std::filesystem::current_path() / "data" / "assets" / filename,
+                    std::filesystem::current_path().parent_path() / "data" / "assets" / filename,
+                    std::filesystem::current_path().parent_path().parent_path() / "data" / "assets" / filename};
+                for (const auto& candidate : candidates) {
+                    if (std::filesystem::exists(candidate)) {
+                        return std::filesystem::weakly_canonical(candidate);
+                    }
+                }
+                return std::nullopt;
+            };
+
+            const auto clipAPath = findAssetPath("clipA.mp4");
+            const auto clipBPath = findAssetPath("clipB.mp4");
+            if (!clipAPath.has_value() || !clipBPath.has_value()) {
+                respondWithError(res, 500, "Demo assets not found under data/assets (expected clipA.mp4 and clipB.mp4)");
+                return;
+            }
+
+            nlohmann::json clipAConfig{{"filePath", clipAPath->string()}};
+            nlohmann::json clipBConfig{{"filePath", clipBPath->string()}};
+
+            core::Feed feedA(core::FeedId{}, "Demo Clip A", core::FeedType::VideoFile, clipAConfig.dump());
+            core::Feed feedB(core::FeedId{}, "Demo Clip B", core::FeedType::VideoFile, clipBConfig.dump());
 
             feedA = feedRepository_.createFeed(feedA);
             feedB = feedRepository_.createFeed(feedB);

@@ -23,6 +23,7 @@ High-level goals:
 - A **C++ server** exposing a **remote API** (over TCP/IP) using the core library.
 - One or more **C++ clients** (CLI, UI, etc.) using that API.
 - A **C++ rendering engine** that connects to the projector and executes scenes in real time.
+- **Projects** group cues and show-level configuration (controllers, MIDI channels, globals) into an ordered show file.
 
 > **Language policy:**
 > Where pragmatic, **use C++** for all components (core, server, renderer, baseline clients). Other languages may be added later, but C++ is the default and must remain a first-class citizen.
@@ -71,6 +72,7 @@ The repo is structured as a C++-oriented monorepo with four main components:
 
 - **Clients → Server**
   - CRUD operations on Scenes, Surfaces, Feeds, Cues.
+  - CRUD operations on Projects (ordered cues + project settings).
   - Playback control: `play`, `pause`, `gotoCue`, etc.
 
 - **Server → SQLite3 & Assets**
@@ -92,6 +94,15 @@ The repo is structured as a C++-oriented monorepo with four main components:
 > **Renderer protocol & inputs:**
 > - `LoadSceneDefinition` is a supported control message for sending a full Scene plus the referenced Feeds in one payload.
 > - The renderer consumes MIDI via `ofxMidi` (e.g., CC #1 mapped to brightness) and audio input via `ofxFft` (FFT amplitude modulates scale).
+
+### 2.2 Project Model & API Surface
+- **Project fields:** `id`, `name`, `description`, ordered `cueOrder`, and `settings` (controllers map, MIDI channels, global config key/values).
+- **Persistence:** tables `projects` and `project_cues` (ordered positions) in SQLite.
+- **Validation:** project references must point to existing cues; MIDI channels limited to 1–16; controller names/targets must be non-empty.
+- **HTTP API:** 
+  - `GET /projects` list projects, `GET /projects/{id}` fetch one.
+  - `POST /projects` create, `PUT /projects/{id}` update (id enforced from path), `DELETE /projects/{id}` remove.
+  - Cue deletion is blocked when the cue is referenced by any project.
 
 ---
 

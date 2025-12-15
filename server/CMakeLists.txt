@@ -40,6 +40,8 @@ add_library(projection_server_lib
     ${SERVER_SOURCE_DIR}/repo/SceneRepository.h
     ${SERVER_SOURCE_DIR}/repo/CueRepository.cpp
     ${SERVER_SOURCE_DIR}/repo/CueRepository.h
+    ${SERVER_SOURCE_DIR}/repo/ProjectRepository.cpp
+    ${SERVER_SOURCE_DIR}/repo/ProjectRepository.h
 )
 
 target_include_directories(projection_server_lib
@@ -89,6 +91,7 @@ add_executable(projection_server_tests
     tests/DbSurfaces_test.cpp
     tests/Repository_test.cpp
     tests/SurfaceRepository_test.cpp
+    tests/ProjectRepository_test.cpp
     tests/HttpApi_test.cpp
     tests/HttpScenesSurfaces_test.cpp
     tests/HttpRendererIntegration_test.cpp

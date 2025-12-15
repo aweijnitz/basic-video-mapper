@@ -83,6 +83,21 @@ json surfaceValueArray(const std::map<SurfaceId, float>& values) {
   return arr;
 }
 
+std::vector<CueId> readCueOrder(const json& array) {
+  if (!array.is_array()) {
+    throw std::runtime_error("Field 'cueOrder' must be an array");
+  }
+  std::vector<CueId> order;
+  order.reserve(array.size());
+  for (const auto& entry : array) {
+    if (!entry.is_string()) {
+      throw std::runtime_error("Entries in 'cueOrder' must be strings");
+    }
+    order.emplace_back(entry.get<std::string>());
+  }
+  return order;
+}
+
 }  // namespace
 
 void to_json(json& j, const FeedType& type) { j = toString(type); }
@@ -244,6 +259,88 @@ void from_json(const json& j, Cue& cue) {
   cue = Cue(CueId{id}, name, SceneId{sceneId});
   cue.getSurfaceOpacities() = std::move(opacities);
   cue.getSurfaceBrightnesses() = std::move(brightnesses);
+}
+
+void to_json(json& j, const ProjectSettings& settings) {
+  j = json{{"controllers", settings.controllers},
+           {"midiChannels", settings.midiChannels},
+           {"globalConfig", settings.globalConfig}};
+}
+
+void from_json(const json& j, ProjectSettings& settings) {
+  if (!j.is_object()) {
+    throw std::runtime_error("ProjectSettings must be an object");
+  }
+  settings.controllers.clear();
+  settings.midiChannels.clear();
+  settings.globalConfig.clear();
+
+  if (j.contains("controllers")) {
+    const auto& controllers = j.at("controllers");
+    if (!controllers.is_object()) {
+      throw std::runtime_error("Field 'controllers' must be an object");
+    }
+    for (auto it = controllers.begin(); it != controllers.end(); ++it) {
+      if (!it.value().is_string()) {
+        throw std::runtime_error("Controller mappings must be string values");
+      }
+      settings.controllers[it.key()] = it.value().get<std::string>();
+    }
+  }
+
+  if (j.contains("midiChannels")) {
+    const auto& midiChannels = j.at("midiChannels");
+    if (!midiChannels.is_array()) {
+      throw std::runtime_error("Field 'midiChannels' must be an array");
+    }
+    for (const auto& channel : midiChannels) {
+      if (!channel.is_number_integer()) {
+        throw std::runtime_error("Entries in 'midiChannels' must be integers");
+      }
+      settings.midiChannels.push_back(channel.get<int>());
+    }
+  }
+
+  if (j.contains("globalConfig")) {
+    const auto& globals = j.at("globalConfig");
+    if (!globals.is_object()) {
+      throw std::runtime_error("Field 'globalConfig' must be an object");
+    }
+    for (auto it = globals.begin(); it != globals.end(); ++it) {
+      if (!it.value().is_string()) {
+        throw std::runtime_error("Global config values must be strings");
+      }
+      settings.globalConfig[it.key()] = it.value().get<std::string>();
+    }
+  }
+}
+
+void to_json(json& j, const Project& project) {
+  j = json{{"id", project.getId().value},
+           {"name", project.getName()},
+           {"description", project.getDescription()},
+           {"cueOrder", json::array()},
+           {"settings", project.getSettings()}};
+  for (const auto& cueId : project.getCueOrder()) {
+    j["cueOrder"].push_back(cueId.value);
+  }
+}
+
+void from_json(const json& j, Project& project) {
+  if (!j.is_object()) {
+    throw std::runtime_error("Project must be an object");
+  }
+  const auto id = requireString(j, "id");
+  const auto name = requireString(j, "name");
+  const auto description = requireString(j, "description");
+  const auto& cueOrderJson = requireField<json>(j, "cueOrder");
+
+  ProjectSettings settings{};
+  if (j.contains("settings")) {
+    from_json(j.at("settings"), settings);
+  }
+
+  project = Project(ProjectId{id}, name, description, readCueOrder(cueOrderJson), settings);
 }
 
 }  // namespace projection::core

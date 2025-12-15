@@ -4,6 +4,7 @@
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
 #include "repo/CueRepository.h"
+#include "repo/ProjectRepository.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
@@ -22,6 +23,7 @@ using projection::server::http::HttpServer;
 using projection::server::repo::FeedRepository;
 using projection::server::repo::SceneRepository;
 using projection::server::repo::CueRepository;
+using projection::server::repo::ProjectRepository;
 
 namespace {
 
@@ -50,10 +52,15 @@ struct TestServerContext {
     FeedRepository feedRepo;
     SceneRepository sceneRepo;
     CueRepository cueRepo;
+    ProjectRepository projectRepo;
     HttpServer httpServer;
 
     explicit TestServerContext(const std::string& dbPath)
-        : feedRepo(connection), sceneRepo(connection), cueRepo(connection), httpServer(feedRepo, sceneRepo, cueRepo, nullptr) {
+        : feedRepo(connection),
+          sceneRepo(connection),
+          cueRepo(connection),
+          projectRepo(connection),
+          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, nullptr) {
         connection.open(dbPath);
         SchemaMigrations::applyMigrations(connection);
     }

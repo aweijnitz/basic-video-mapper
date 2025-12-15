@@ -59,6 +59,26 @@ CREATE TABLE IF NOT EXISTS cues (
 );
 )SQL";
 
+const char* kCreateProjectsTable = R"SQL(
+CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    settings_json TEXT NOT NULL
+);
+)SQL";
+
+const char* kCreateProjectCuesTable = R"SQL(
+CREATE TABLE IF NOT EXISTS project_cues (
+    project_id TEXT NOT NULL,
+    cue_id TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY(project_id, position),
+    FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY(cue_id) REFERENCES cues(id)
+);
+)SQL";
+
 void ensureSchemaVersionTable(sqlite3* handle) {
     char* errorMessage = nullptr;
     int result = sqlite3_exec(handle, kCreateSchemaVersion, nullptr, nullptr, &errorMessage);
@@ -97,6 +117,20 @@ void createTables(sqlite3* handle) {
         std::string error = errorMessage ? errorMessage : "Unknown error";
         sqlite3_free(errorMessage);
         throw std::runtime_error("Failed to create cues table: " + error);
+    }
+
+    result = sqlite3_exec(handle, kCreateProjectsTable, nullptr, nullptr, &errorMessage);
+    if (result != SQLITE_OK) {
+        std::string error = errorMessage ? errorMessage : "Unknown error";
+        sqlite3_free(errorMessage);
+        throw std::runtime_error("Failed to create projects table: " + error);
+    }
+
+    result = sqlite3_exec(handle, kCreateProjectCuesTable, nullptr, nullptr, &errorMessage);
+    if (result != SQLITE_OK) {
+        std::string error = errorMessage ? errorMessage : "Unknown error";
+        sqlite3_free(errorMessage);
+        throw std::runtime_error("Failed to create project_cues table: " + error);
     }
 }
 }  // namespace

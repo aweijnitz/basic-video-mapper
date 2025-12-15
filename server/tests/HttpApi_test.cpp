@@ -5,6 +5,7 @@
 #include "repo/FeedRepository.h"
 #include "repo/SceneRepository.h"
 #include "repo/CueRepository.h"
+#include "repo/ProjectRepository.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <chrono>
@@ -16,6 +17,7 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <vector>
 
 namespace projection::server {
 namespace {
@@ -47,10 +49,15 @@ struct TestServerContext {
     repo::FeedRepository feedRepo;
     repo::SceneRepository sceneRepo;
     repo::CueRepository cueRepo;
+    repo::ProjectRepository projectRepo;
     http::HttpServer httpServer;
 
     explicit TestServerContext(const std::string& dbPath)
-        : feedRepo(connection), sceneRepo(connection), cueRepo(connection), httpServer(feedRepo, sceneRepo, cueRepo, nullptr) {
+        : feedRepo(connection),
+          sceneRepo(connection),
+          cueRepo(connection),
+          projectRepo(connection),
+          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, nullptr) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }
@@ -144,6 +151,16 @@ std::string cueBody(const std::string& cueId, const std::string& sceneId, const 
     return cue.dump();
 }
 
+std::string projectBody(const std::string& projectId, const std::vector<std::string>& cueOrder,
+                        nlohmann::json settings = nlohmann::json::object()) {
+    nlohmann::json project{{"id", projectId},
+                           {"name", "ProjectName"},
+                           {"description", "Project description"},
+                           {"cueOrder", cueOrder},
+                           {"settings", settings.empty() ? nlohmann::json::object() : settings}};
+    return project.dump();
+}
+
 }  // namespace
 
 TEST_CASE("HTTP API can create and list feeds", "[http][integration]") {
@@ -198,6 +215,74 @@ TEST_CASE("HTTP API can create and list scenes", "[http][integration]") {
     REQUIRE(bodyJson.is_array());
     REQUIRE(bodyJson.size() == 1);
     REQUIRE(bodyJson[0]["id"] == "1");
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST_CASE("HTTP API can create, fetch, update, and delete projects", "[http][integration][projects]") {
+    auto dbPath = tempDbPath("http_api_projects.db");
+    TestServerContext ctx(dbPath);
+    const auto port = reservePort();
+    ServerRunner runner(ctx.httpServer, port);
+
+    auto client = makeClient(port);
+    REQUIRE(waitForServer(*client, ctx.httpServer, runner));
+
+    REQUIRE(client->Post("/feeds", feedBody(), "application/json")->status == 201);
+    REQUIRE(client->Post("/scenes", sceneWithSurfaceBody("scene-1", "1"), "application/json")->status == 201);
+    REQUIRE(client->Post("/cues", cueBody("cue-1", "scene-1", "s1"), "application/json")->status == 201);
+
+    nlohmann::json settings{{"controllers", {{"fader1", "master"}}}, {"midiChannels", {1, 2}}, {"globalConfig", {}}};
+    auto createRes = client->Post("/projects", projectBody("project-1", {"cue-1"}, settings), "application/json");
+    REQUIRE(createRes != nullptr);
+    REQUIRE(createRes->status == 201);
+
+    auto listRes = client->Get("/projects");
+    REQUIRE(listRes != nullptr);
+    REQUIRE(listRes->status == 200);
+    auto projects = nlohmann::json::parse(listRes->body);
+    REQUIRE(projects.is_array());
+    REQUIRE(projects.size() == 1);
+    REQUIRE(projects[0]["cueOrder"].size() == 1);
+
+    auto getRes = client->Get("/projects/project-1");
+    REQUIRE(getRes != nullptr);
+    REQUIRE(getRes->status == 200);
+    auto projectJson = nlohmann::json::parse(getRes->body);
+    REQUIRE(projectJson["settings"]["controllers"]["fader1"] == "master");
+
+    nlohmann::json updatedSettings{{"controllers", {{"knob1", "hue"}}}, {"midiChannels", {3}}, {"globalConfig", {}}};
+    auto updatePayload = nlohmann::json{{"id", "ignored"},
+                                        {"name", "ProjectName"},
+                                        {"description", "Updated"},
+                                        {"cueOrder", nlohmann::json::array({"cue-1"})},
+                                        {"settings", updatedSettings}};
+    auto updateRes = client->Put("/projects/project-1", updatePayload.dump(), "application/json");
+    REQUIRE(updateRes != nullptr);
+    REQUIRE(updateRes->status == 200);
+    auto updatedJson = nlohmann::json::parse(updateRes->body);
+    REQUIRE(updatedJson["description"] == "Updated");
+    REQUIRE(updatedJson["settings"]["controllers"]["knob1"] == "hue");
+
+    auto deleteRes = client->Delete("/projects/project-1");
+    REQUIRE(deleteRes != nullptr);
+    REQUIRE(deleteRes->status == 204);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST_CASE("HTTP API rejects projects referencing unknown cues", "[http][integration][projects][validation]") {
+    auto dbPath = tempDbPath("http_api_projects_validation.db");
+    TestServerContext ctx(dbPath);
+    const auto port = reservePort();
+    ServerRunner runner(ctx.httpServer, port);
+
+    auto client = makeClient(port);
+    REQUIRE(waitForServer(*client, ctx.httpServer, runner));
+
+    auto createRes = client->Post("/projects", projectBody("project-1", {"missing-cue"}), "application/json");
+    REQUIRE(createRes != nullptr);
+    REQUIRE(createRes->status == 400);
 
     std::filesystem::remove(dbPath);
 }
@@ -308,6 +393,27 @@ TEST_CASE("HTTP API supports cue CRUD", "[http][integration]") {
     auto deleteRes = client->Delete("/cues/cue-1");
     REQUIRE(deleteRes != nullptr);
     REQUIRE(deleteRes->status == 204);
+
+    std::filesystem::remove(dbPath);
+}
+
+TEST_CASE("HTTP API prevents deleting cues referenced by projects", "[http][integration][projects]") {
+    auto dbPath = tempDbPath("http_api_project_cue_guard.db");
+    TestServerContext ctx(dbPath);
+    const auto port = reservePort();
+    ServerRunner runner(ctx.httpServer, port);
+
+    auto client = makeClient(port);
+    REQUIRE(waitForServer(*client, ctx.httpServer, runner));
+
+    REQUIRE(client->Post("/feeds", feedBody(), "application/json")->status == 201);
+    REQUIRE(client->Post("/scenes", sceneWithSurfaceBody("scene-1", "1"), "application/json")->status == 201);
+    REQUIRE(client->Post("/cues", cueBody("cue-guard", "scene-1", "s1"), "application/json")->status == 201);
+    REQUIRE(client->Post("/projects", projectBody("project-guard", {"cue-guard"}), "application/json")->status == 201);
+
+    auto deleteRes = client->Delete("/cues/cue-guard");
+    REQUIRE(deleteRes != nullptr);
+    REQUIRE(deleteRes->status == 400);
 
     std::filesystem::remove(dbPath);
 }

@@ -5,6 +5,7 @@
 
 #include "projection/core/Cue.h"
 #include "projection/core/Feed.h"
+#include "projection/core/Project.h"
 #include "projection/core/Scene.h"
 #include "projection/core/Surface.h"
 #include "projection/core/Validation.h"
@@ -117,3 +118,40 @@ TEST_CASE("validateCueForScene succeeds for cue with no surface entries", "[vali
   REQUIRE(errorMessage.empty());
 }
 
+TEST_CASE("validateProjectCues ensures references exist and settings are sane", "[validation][project]") {
+  Cue cueA{makeCueId("cue-A"), "A", makeSceneId("scene-1")};
+  Cue cueB{makeCueId("cue-B"), "B", makeSceneId("scene-1")};
+
+  ProjectSettings settings;
+  settings.midiChannels = {1, 5};
+  settings.controllers["fader1"] = "master";
+  Project project{makeProjectId("proj-1"), "Show", "desc", {cueA.getId(), cueB.getId()}, settings};
+
+  std::string errorMessage;
+  REQUIRE(validateProjectCues(project, {cueA, cueB}, errorMessage));
+  REQUIRE(errorMessage.empty());
+}
+
+TEST_CASE("validateProjectCues fails for missing cue references", "[validation][project]") {
+  Cue cueA{makeCueId("cue-A"), "A", makeSceneId("scene-1")};
+  Project project{makeProjectId("proj-1"), "Show", "desc", {cueA.getId(), makeCueId("missing")}, {}};
+  std::string errorMessage;
+
+  REQUIRE(!validateProjectCues(project, {cueA}, errorMessage));
+  REQUIRE(!errorMessage.empty());
+}
+
+TEST_CASE("validateProjectCues validates MIDI channel range and required name", "[validation][project]") {
+  Cue cueA{makeCueId("cue-A"), "A", makeSceneId("scene-1")};
+  ProjectSettings settings;
+  settings.midiChannels = {0};
+  Project project{makeProjectId("proj-1"), "", "desc", {cueA.getId()}, settings};
+  std::string errorMessage;
+
+  REQUIRE(!validateProjectCues(project, {cueA}, errorMessage));
+  REQUIRE(!errorMessage.empty());
+
+  project.setName("Show");
+  REQUIRE(!validateProjectCues(project, {cueA}, errorMessage));
+  REQUIRE(!errorMessage.empty());
+}

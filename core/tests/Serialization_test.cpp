@@ -5,6 +5,7 @@
 
 #include "projection/core/Cue.h"
 #include "projection/core/Feed.h"
+#include "projection/core/Project.h"
 #include "projection/core/Scene.h"
 #include "projection/core/Serialization.h"
 #include "projection/core/Surface.h"
@@ -15,6 +16,9 @@ using projection::core::CueId;
 using projection::core::Feed;
 using projection::core::FeedId;
 using projection::core::FeedType;
+using projection::core::Project;
+using projection::core::ProjectId;
+using projection::core::ProjectSettings;
 using projection::core::Scene;
 using projection::core::SceneId;
 using projection::core::Surface;
@@ -108,6 +112,32 @@ TEST_CASE("Cue round-trip serialization", "[serialization]") {
   }
 }
 
+TEST_CASE("Project round-trip serialization", "[serialization]") {
+  ProjectSettings settings;
+  settings.controllers["fader1"] = "masterBrightness";
+  settings.midiChannels = {1, 10};
+  settings.globalConfig["clockBpm"] = "128";
+
+  Project project{ProjectId{"proj-1"},
+                  "Main Show",
+                  "Demo project",
+                  {CueId{"cue-1"}, CueId{"cue-2"}},
+                  settings};
+
+  json j = project;
+  Project parsed = j.get<Project>();
+
+  REQUIRE(parsed.getId().value == project.getId().value);
+  REQUIRE(parsed.getName() == project.getName());
+  REQUIRE(parsed.getDescription() == project.getDescription());
+  REQUIRE(parsed.getCueOrder().size() == project.getCueOrder().size());
+  REQUIRE(parsed.getCueOrder()[0].value == "cue-1");
+  REQUIRE(parsed.getSettings().controllers.at("fader1") == "masterBrightness");
+  std::vector<int> expectedChannels{1, 10};
+  REQUIRE(parsed.getSettings().midiChannels == expectedChannels);
+  REQUIRE(parsed.getSettings().globalConfig.at("clockBpm") == "128");
+}
+
 TEST_CASE("Feed configJson accepts string or object", "[serialization]") {
   json feedWithString = {
       {"id", "feed-1"},
@@ -176,4 +206,13 @@ TEST_CASE("Type mismatches throw", "[serialization][negative]") {
                       {"blendMode", "Normal"},
                       {"zOrder", 0}};
   expectRuntimeError([&]() { badVertices.get<Surface>(); });
+
+  json badProject = {
+      {"id", "proj-1"},
+      {"name", "Bad"},
+      {"description", "desc"},
+      {"cueOrder", json::array({{"not-a-string"}})},
+      {"settings", json{{"midiChannels", json::array({1, 2})}}},
+  };
+  expectRuntimeError([&]() { badProject.get<Project>(); });
 }

@@ -8,6 +8,7 @@
 #include "projection/core/Cue.h"
 #include "projection/core/Enums.h"
 #include "projection/core/Feed.h"
+#include "projection/core/Project.h"
 #include "projection/core/Scene.h"
 #include "projection/core/Surface.h"
 
@@ -42,5 +43,10 @@ void from_json(const nlohmann::json& j, Scene& scene);
 void to_json(nlohmann::json& j, const Cue& cue);
 void from_json(const nlohmann::json& j, Cue& cue);
 
-}  // namespace projection::core
+void to_json(nlohmann::json& j, const ProjectSettings& settings);
+void from_json(const nlohmann::json& j, ProjectSettings& settings);
 
+void to_json(nlohmann::json& j, const Project& project);
+void from_json(const nlohmann::json& j, Project& project);
+
+}  // namespace projection::core

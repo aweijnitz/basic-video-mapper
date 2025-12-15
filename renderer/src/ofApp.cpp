@@ -97,39 +97,67 @@ void ofApp::draw() {
   ofBackground(0, 0, 0);
   ofSetColor(255, 255, 255);
 
-  // Draw loaded video feeds on their surfaces.
+  // Draw loaded video feeds onto their skewed surfaces using textured meshes.
   const auto& scene = renderState_.currentScene();
   const auto& videoFeeds = renderState_.videoFeeds();
 
+  const float screenW = static_cast<float>(ofGetWidth());
+  const float screenH = static_cast<float>(ofGetHeight());
+
   ofPushMatrix();
-  ofTranslate(ofGetWidth() / 2.0f, ofGetHeight() / 2.0f);
+  ofTranslate(screenW / 2.0f, screenH / 2.0f);
   ofScale(audioScale_, audioScale_);
-  ofTranslate(-ofGetWidth() / 2.0f, -ofGetHeight() / 2.0f);
+  ofTranslate(-screenW / 2.0f, -screenH / 2.0f);
 
   for (const auto& surface : scene.getSurfaces()) {
-    auto it = videoFeeds.find(surface.getFeedId().value);
-    if (it == videoFeeds.end()) {
+    auto feedIt = videoFeeds.find(surface.getFeedId().value);
+    if (feedIt == videoFeeds.end()) {
+      continue;
+    }
+
+    auto& player = feedIt->second.player;
+    if (!player.isLoaded() || player.getTexture().getTextureData().textureID == 0) {
       continue;
     }
 
     const auto& vertices = surface.getVertices();
-    if (vertices.empty()) {
+    if (vertices.size() < 3) {
       continue;
+    }
+
+    std::vector<glm::vec2> screenVerts;
+    screenVerts.reserve(vertices.size());
+    for (const auto& v : vertices) {
+      // Scene coordinates are normalized -1..1; map to screen pixels.
+      float x = (v.x * 0.5f + 0.5f) * screenW;
+      float y = (v.y * 0.5f + 0.5f) * screenH;
+      screenVerts.emplace_back(x, y);
     }
 
     float minX = std::numeric_limits<float>::max();
     float maxX = std::numeric_limits<float>::lowest();
     float minY = std::numeric_limits<float>::max();
     float maxY = std::numeric_limits<float>::lowest();
-    for (const auto& vertex : vertices) {
-      minX = std::min(minX, vertex.x);
-      maxX = std::max(maxX, vertex.x);
-      minY = std::min(minY, vertex.y);
-      maxY = std::max(maxY, vertex.y);
+    for (const auto& v : screenVerts) {
+      minX = std::min(minX, v.x);
+      maxX = std::max(maxX, v.x);
+      minY = std::min(minY, v.y);
+      maxY = std::max(maxY, v.y);
+    }
+    const float videoW = player.getWidth();
+    const float videoH = player.getHeight();
+    if (videoW <= 0.0f || videoH <= 0.0f || maxX <= minX || maxY <= minY) {
+      continue;
     }
 
-    float width = std::max(0.0f, maxX - minX);
-    float height = std::max(0.0f, maxY - minY);
+    ofMesh mesh;
+    mesh.setMode(OF_PRIMITIVE_TRIANGLE_FAN);
+    for (const auto& v : screenVerts) {
+      float u = ofMap(v.x, minX, maxX, 0.0f, videoW, true);
+      float t = ofMap(v.y, minY, maxY, 0.0f, videoH, true);
+      mesh.addVertex(glm::vec3(v.x, v.y, 0.0f));
+      mesh.addTexCoord(glm::vec2(u, t));
+    }
 
     const float alpha = std::clamp(surface.getOpacity() * midiBrightness_, 0.0f, 1.0f);
     const float brightness = std::clamp(surface.getBrightness(), 0.0f, 1.0f);
@@ -137,7 +165,12 @@ void ofApp::draw() {
     const int colorValue = static_cast<int>(std::round(brightness * 255.0f));
     ofSetColor(colorValue, colorValue, colorValue, alphaValue);
 
-    it->second.player.draw(minX, minY, width, height);
+    auto& texture = player.getTexture();
+    if (texture.isAllocated()) {
+      texture.bind();
+      mesh.draw();
+      texture.unbind();
+    }
   }
 
   ofPopMatrix();

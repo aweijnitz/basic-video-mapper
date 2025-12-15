@@ -4,6 +4,7 @@
 #include "projection/core/RendererProtocol.h"
 #include "renderer/RendererClient.h"
 #include "repo/FeedRepository.h"
+#include "repo/ProjectRepository.h"
 #include "repo/SceneRepository.h"
 #include "repo/CueRepository.h"
 
@@ -197,6 +198,7 @@ struct RendererHttpContext {
     repo::FeedRepository feedRepo;
     repo::SceneRepository sceneRepo;
     repo::CueRepository cueRepo;
+    repo::ProjectRepository projectRepo;
     std::shared_ptr<renderer::RendererClient> rendererClient;
     http::HttpServer httpServer;
 
@@ -204,8 +206,9 @@ struct RendererHttpContext {
         : feedRepo(connection),
           sceneRepo(connection),
           cueRepo(connection),
+          projectRepo(connection),
           rendererClient(std::move(client)),
-          httpServer(feedRepo, sceneRepo, cueRepo, rendererClient) {
+          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, rendererClient) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }
