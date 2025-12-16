@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <optional>
 
 #include "db/SqliteConnection.h"
 #include "projection/core/Feed.h"
