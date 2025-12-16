@@ -22,18 +22,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install OpenFrameworks
+      run: curl -L -s -o of_v0.12.1_linux64_gcc6_release.tar.gz https://github.com/openframeworks/openFrameworks/releases/download/0.12.1/of_v0.12.1_linux64_gcc6_release.tar.gz && tar -xzf of_v0.12.1_linux64_gcc6_release.tar.gz
+        
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      run: OPENFRAMEWORKS_DIR=${{github.workspace}}/of_v0.12.1_linux64_gcc6_release; cmake -S . -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: Build
       # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target lumi_server lumi_server_tests
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --parallel 3  --target lumi_server lumi_server_tests
 
     - name: Test
       working-directory: ${{github.workspace}}/build
       # Execute tests defined by the CMake configuration.
       # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest -C ${{env.BUILD_TYPE}} -R lumi_server_tests
+      run: ctest -C ${{env.BUILD_TYPE}} -R lumi_server_tests --output-on-failure --verbose
 
