@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
 
 const char* kCreateFeedsTable = R"SQL(
 CREATE TABLE IF NOT EXISTS feeds (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     config_json TEXT NOT NULL
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS feeds (
 
 const char* kCreateScenesTable = R"SQL(
 CREATE TABLE IF NOT EXISTS scenes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT
 );

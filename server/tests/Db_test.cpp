@@ -52,18 +52,20 @@ TEST_CASE("SchemaMigrations creates feeds and scenes tables", "[db][migrations]"
     REQUIRE(handle != nullptr);
 
     char* errorMessage = nullptr;
-    int result = sqlite3_exec(handle, "INSERT INTO feeds(name, type, config_json) VALUES('feed1', 'video', '{}');", nullptr,
-                              nullptr, &errorMessage);
+    int result = sqlite3_exec(
+        handle, "INSERT INTO feeds(id, name, type, config_json) VALUES('feed-1', 'feed1', 'VideoFile', '{}');", nullptr,
+        nullptr, &errorMessage);
     sqlite3_free(errorMessage);
     REQUIRE(result == SQLITE_OK);
 
-    result = sqlite3_exec(handle, "INSERT INTO scenes(name, description) VALUES('scene1', 'desc');", nullptr, nullptr,
-                          &errorMessage);
+    result =
+        sqlite3_exec(handle, "INSERT INTO scenes(id, name, description) VALUES('scene-1', 'scene1', 'desc');", nullptr,
+                     nullptr, &errorMessage);
     sqlite3_free(errorMessage);
     REQUIRE(result == SQLITE_OK);
 
     result = sqlite3_exec(handle, "INSERT INTO cues(id, name, scene_id, surface_opacities_json, surface_brightnesses_json) "
-                                   "VALUES('cue-1', 'Cue', '1', '[]', '[]');",
+                                   "VALUES('cue-1', 'Cue', 'scene-1', '[]', '[]');",
                           nullptr, nullptr, &errorMessage);
     sqlite3_free(errorMessage);
     REQUIRE(result == SQLITE_OK);

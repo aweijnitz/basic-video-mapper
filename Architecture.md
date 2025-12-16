@@ -7,7 +7,7 @@ This document summarizes the current architecture of the projection/video mappin
 
 ```mermaid
 flowchart LR
-    Client[Clients\nCLI / GUI tools] -->|HTTP+JSON\nport 8080| Server[Server\nprojection_server]
+    Client[Clients\nCLI / GUI tools] -->|HTTP+JSON\nport 8080| Server[Server\nlumi_server]
     Server -->|TCP control\nport 5050| Renderer[Renderer\nprojection_renderer]
     Server -->|Embedded DB\n./data/db/projection.db| SQLite[(SQLite file)]
     Server -->|Asset metadata| Assets[Asset Storage\n./data/assets]
@@ -17,7 +17,7 @@ flowchart LR
 ```
 
 - **Clients**: External tools (CLI/GUI) that manage feeds, surfaces, scenes, and playback through the Server’s HTTP+JSON API.
-- **Server (`projection_server`)**: C++ service that exposes HTTP endpoints, orchestrates persistence, and forwards control commands to the Renderer.
+- **Server (`lumi_server`)**: C++ service that exposes HTTP endpoints, orchestrates persistence, and forwards control commands to the Renderer.
 - **Renderer (`projection_renderer`)**: openFrameworks-based process that receives control protocol messages and renders the active scene on the projector/display.
 - **Core Library (`projection_core`)**: Shared C++ domain model (scenes, surfaces, feeds, cues) with JSON serialization/validation used by both Server and Renderer.
 - **SQLite Database**: Embedded file-backed DB (`./data/db/projection.db`) used by the Server for durable state.
@@ -39,7 +39,7 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    subgraph Server[projection_server]
+    subgraph Server[lumi_server]
         Main[Main / Config Parsing] --> App[ServerApp wiring]
         App --> Http[HTTP Layer\nhttp::HttpServer]
         App --> DBLayer[DB Layer\ndb::SqliteConnection + SchemaMigrations]

@@ -19,15 +19,16 @@ void ofApp::setup() {
   }
   server_.start(port_);
 
+#if PROJECTION_HAS_OFX_MIDI
   midiIn_.openPort(0);
   midiIn_.addListener(this);
+#endif
 
   const int inputChannels = 1;
   const int outputChannels = 0;
   const int sampleRate = 44100;
   const int bufferSize = 512;
   soundStream_.setup(this, outputChannels, inputChannels, sampleRate, bufferSize, 4);
-  fft_ = ofxFft::create(bufferSize);
   if (verbose_) {
     std::cerr << "[renderer] audio/midi initialized" << std::endl;
   }
@@ -65,11 +66,12 @@ void ofApp::update() {
     audioCopy = audioBuffer_;
   }
 
-  if (fft_ && !audioCopy.empty()) {
-    fft_->setSignal(audioCopy.data());
-    const int binSize = fft_->getBinSize();
-    std::vector<float> magnitudes(fft_->getMagnitude(), fft_->getMagnitude() + binSize);
-    const float averageEnergy = projection::renderer::computeAverageEnergy(magnitudes, 32);
+  if (!audioCopy.empty()) {
+    double energySum = 0.0;
+    for (float sample : audioCopy) {
+      energySum += static_cast<double>(sample) * static_cast<double>(sample);
+    }
+    const float averageEnergy = static_cast<float>(energySum / static_cast<double>(audioCopy.size()));
 
     constexpr float smoothingFactor = 0.9f;
     smoothedEnergy_ = smoothingFactor * smoothedEnergy_ + (1.0f - smoothingFactor) * averageEnergy;
@@ -204,15 +206,19 @@ void ofApp::audioIn(ofSoundBuffer& input) {
   audioBuffer_ = std::move(mono);
 }
 
+#if PROJECTION_HAS_OFX_MIDI
 void ofApp::newMidiMessage(ofxMidiMessage& msg) {
   if (msg.status == ofxMidiMessage::MIDI_CONTROL_CHANGE && msg.control == 1) {
     midiBrightness_ = projection::renderer::mapMidiValueToBrightness(msg.value);
   }
 }
+#endif
 
 void ofApp::exit() {
   soundStream_.stop();
+#if PROJECTION_HAS_OFX_MIDI
   midiIn_.closePort();
+#endif
   server_.stop();
 }
 

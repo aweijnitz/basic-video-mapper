@@ -66,5 +66,4 @@ TEST_CASE("loadSceneDefinition stores scene, feeds, and video resources", "[rend
   auto it = videoFeeds.find("video1");
   REQUIRE(it != videoFeeds.end());
   REQUIRE(it->second.filePath == "/media/video1.mp4");
-  REQUIRE(it->second.player.isPlaying());
 }

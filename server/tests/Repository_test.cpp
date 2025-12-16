@@ -7,6 +7,7 @@
 #include "repo/SceneRepository.h"
 
 #include <catch2/catch_test_macros.hpp>
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <stdexcept>
@@ -65,9 +66,11 @@ TEST_CASE("FeedRepository creates and lists feeds", "[repo][feed]") {
 
     auto feeds = repo.listFeeds();
     REQUIRE(feeds.size() == 2);
-    REQUIRE(feeds[0].getName() == "Test Feed");
-    REQUIRE(feeds[1].getId().value == "42");
-    REQUIRE(feeds[1].getType() == FeedType::Camera);
+    REQUIRE(std::any_of(feeds.begin(), feeds.end(),
+                        [&](const Feed& f) { return f.getId() == created.getId() && f.getName() == "Test Feed"; }));
+    auto fetched = repo.findFeedById(makeFeedId("42"));
+    REQUIRE(fetched.has_value());
+    REQUIRE(fetched->getType() == FeedType::Camera);
 }
 
 TEST_CASE("SceneRepository creates and lists scenes", "[repo][scene]") {
@@ -86,19 +89,27 @@ TEST_CASE("SceneRepository creates and lists scenes", "[repo][scene]") {
 
     auto scenes = repo.listScenes();
     REQUIRE(scenes.size() == 2);
-    REQUIRE(scenes[0].getName() == "My Scene");
-    REQUIRE(scenes[1].getDescription() == "More");
-    REQUIRE(scenes[1].getSurfaces().empty());
+    auto fetchedGenerated = repo.findSceneById(created.getId());
+    REQUIRE(fetchedGenerated.has_value());
+    REQUIRE(fetchedGenerated->getName() == "My Scene");
+
+    auto fetchedExplicit = repo.findSceneById(makeSceneId("7"));
+    REQUIRE(fetchedExplicit.has_value());
+    REQUIRE(fetchedExplicit->getDescription() == "More");
+    REQUIRE(fetchedExplicit->getSurfaces().empty());
 }
 
-TEST_CASE("FeedRepository rejects invalid ids", "[repo][feed][error]") {
+TEST_CASE("FeedRepository accepts string ids", "[repo][feed]") {
     SqliteConnection connection;
     setupTestDb(connection, "feed_repo_error.sqlite");
 
     FeedRepository repo(connection);
-    Feed invalidId(makeFeedId("abc"), "Bad", FeedType::Generated, "{}");
+    Feed customId(makeFeedId("abc-123"), "Custom", FeedType::Generated, "{}");
 
-    REQUIRE(expectRuntimeError([&]() { repo.createFeed(invalidId); }));
+    Feed created = repo.createFeed(customId);
+    REQUIRE(created.getId().value == "abc-123");
+    auto found = repo.findFeedById(makeFeedId("abc-123"));
+    REQUIRE(found.has_value());
 }
 
 TEST_CASE("SceneRepository prevents duplicate numeric ids", "[repo][scene][error]") {

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(projection_server VERSION 0.1.0 LANGUAGES CXX)
+project(lumi_server VERSION 0.1.0 LANGUAGES CXX)
 
 find_package(SQLite3 QUIET)
 
@@ -18,8 +18,7 @@ if (NOT SQLite3_FOUND)
 endif()
 
 set(SERVER_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-add_library(projection_server_lib
+add_library(lumi_server_lib
     ${SERVER_SOURCE_DIR}/Config.cpp
     ${SERVER_SOURCE_DIR}/Config.h
     ${SERVER_SOURCE_DIR}/ServerApp.cpp
@@ -44,14 +43,14 @@ add_library(projection_server_lib
     ${SERVER_SOURCE_DIR}/repo/ProjectRepository.h
 )
 
-target_include_directories(projection_server_lib
+target_include_directories(lumi_server_lib
     PUBLIC
         ${SERVER_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/third_party
         ${SQLite3_INCLUDE_DIRS}
 )
 
-target_compile_features(projection_server_lib PUBLIC cxx_std_17)
+target_compile_features(lumi_server_lib PUBLIC cxx_std_17)
 
 if (TARGET SQLite::SQLite3)
     set(SQLITE_TARGET SQLite::SQLite3)
@@ -60,31 +59,31 @@ elseif (TARGET SQLite3::SQLite3)
 endif()
 
 if (SQLITE_TARGET)
-    target_link_libraries(projection_server_lib
+    target_link_libraries(lumi_server_lib
         PUBLIC
             projection_core
             ${SQLITE_TARGET}
     )
 else()
-    target_link_libraries(projection_server_lib
+    target_link_libraries(lumi_server_lib
         PUBLIC
             projection_core
             ${SQLite3_LIBRARIES}
     )
 endif()
 
-add_executable(projection_server
+add_executable(lumi_server
     ${SERVER_SOURCE_DIR}/main.cpp
 )
 
-target_compile_features(projection_server PRIVATE cxx_std_17)
+target_compile_features(lumi_server PRIVATE cxx_std_17)
 
-target_link_libraries(projection_server
+target_link_libraries(lumi_server
     PRIVATE
-        projection_server_lib
+        lumi_server_lib
 )
 
-add_executable(projection_server_tests
+add_executable(lumi_server_tests
     tests/Config_test.cpp
     tests/ServerApp_test.cpp
     tests/Db_test.cpp
@@ -100,12 +99,12 @@ add_executable(projection_server_tests
     tests/RendererClient_LoadSceneDefinition_test.cpp
 )
 
-target_compile_features(projection_server_tests PRIVATE cxx_std_17)
+target_compile_features(lumi_server_tests PRIVATE cxx_std_17)
 
-target_link_libraries(projection_server_tests
+target_link_libraries(lumi_server_tests
     PRIVATE
-        projection_server_lib
+        lumi_server_lib
         Catch2::Catch2WithMain
 )
 
-add_test(NAME projection_server_tests COMMAND projection_server_tests)
+add_test(NAME lumi_server_tests COMMAND lumi_server_tests)

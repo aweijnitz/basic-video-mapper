@@ -2,6 +2,7 @@
 
 #include <sqlite3.h>
 
+#include <chrono>
 #include <stdexcept>
 #include <string>
 
@@ -10,15 +11,9 @@
 namespace projection::server::repo {
 
 namespace {
-long long parseId(const core::SceneId& id) {
-    if (id.value.empty()) {
-        return -1;
-    }
-    try {
-        return std::stoll(id.value);
-    } catch (const std::exception& e) {
-        throw std::runtime_error(std::string("Invalid scene id: ") + e.what());
-    }
+std::string generateId() {
+    auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    return "scene-" + std::to_string(now);
 }
 }
 
@@ -30,28 +25,20 @@ core::Scene SceneRepository::createScene(const core::Scene& scene) {
         throw std::runtime_error("SQLite connection is not open");
     }
 
-    const bool hasId = !scene.getId().value.empty();
-    std::string sql;
-    if (hasId) {
-        sql = "INSERT INTO scenes(id, name, description) VALUES(?, ?, ?);";
-    } else {
-        sql = "INSERT INTO scenes(name, description) VALUES(?, ?);";
-    }
+    const std::string idValue = scene.getId().value.empty() ? generateId() : scene.getId().value;
+    const char* sql = "INSERT INTO scenes(id, name, description) VALUES(?, ?, ?);";
 
     sqlite3_stmt* stmt = nullptr;
-    int result = sqlite3_prepare_v2(handle, sql.c_str(), -1, &stmt, nullptr);
+    int result = sqlite3_prepare_v2(handle, sql, -1, &stmt, nullptr);
     if (result != SQLITE_OK) {
         throw std::runtime_error("Failed to prepare scene insert statement: " + std::string(sqlite3_errmsg(handle)));
     }
 
     int bindIndex = 1;
-    if (hasId) {
-        long long idValue = parseId(scene.getId());
-        result = sqlite3_bind_int64(stmt, bindIndex++, idValue);
-        if (result != SQLITE_OK) {
-            sqlite3_finalize(stmt);
-            throw std::runtime_error("Failed to bind scene id: " + std::string(sqlite3_errmsg(handle)));
-        }
+    result = sqlite3_bind_text(stmt, bindIndex++, idValue.c_str(), -1, SQLITE_TRANSIENT);
+    if (result != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to bind scene id: " + std::string(sqlite3_errmsg(handle)));
     }
 
     result = sqlite3_bind_text(stmt, bindIndex++, scene.getName().c_str(), -1, SQLITE_TRANSIENT);
@@ -75,10 +62,7 @@ core::Scene SceneRepository::createScene(const core::Scene& scene) {
     sqlite3_finalize(stmt);
 
     core::Scene created = scene;
-    if (!hasId) {
-        long long newId = sqlite3_last_insert_rowid(handle);
-        created.setId(core::SceneId(std::to_string(newId)));
-    }
+    created.setId(core::SceneId(idValue));
 
     repo::SurfaceRepository surfaceRepo(connection_);
     for (const auto& surface : scene.getSurfaces()) {
@@ -104,11 +88,11 @@ std::vector<core::Scene> SceneRepository::listScenes() {
 
     std::vector<core::Scene> scenes;
     while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
-        long long idValue = sqlite3_column_int64(stmt, 0);
+        const unsigned char* idText = sqlite3_column_text(stmt, 0);
         const unsigned char* nameText = sqlite3_column_text(stmt, 1);
         const unsigned char* descText = sqlite3_column_text(stmt, 2);
 
-        std::string idString = std::to_string(idValue);
+        std::string idString = idText ? reinterpret_cast<const char*>(idText) : "";
         std::string name = nameText ? reinterpret_cast<const char*>(nameText) : "";
         std::string description = descText ? reinterpret_cast<const char*>(descText) : "";
 
@@ -143,8 +127,7 @@ std::optional<core::Scene> SceneRepository::findSceneById(const core::SceneId& s
         throw std::runtime_error("Failed to prepare scene select statement: " + std::string(sqlite3_errmsg(handle)));
     }
 
-    long long idValue = parseId(sceneId);
-    result = sqlite3_bind_int64(stmt, 1, idValue);
+    result = sqlite3_bind_text(stmt, 1, sceneId.value.c_str(), -1, SQLITE_TRANSIENT);
     if (result != SQLITE_OK) {
         sqlite3_finalize(stmt);
         throw std::runtime_error("Failed to bind scene id: " + std::string(sqlite3_errmsg(handle)));
@@ -192,8 +175,7 @@ core::Scene SceneRepository::updateScene(const core::Scene& scene) {
 
     result = sqlite3_bind_text(stmt, 1, scene.getName().c_str(), -1, SQLITE_TRANSIENT);
     result |= sqlite3_bind_text(stmt, 2, scene.getDescription().c_str(), -1, SQLITE_TRANSIENT);
-    long long idValue = parseId(scene.getId());
-    result |= sqlite3_bind_int64(stmt, 3, idValue);
+    result |= sqlite3_bind_text(stmt, 3, scene.getId().value.c_str(), -1, SQLITE_TRANSIENT);
     if (result != SQLITE_OK) {
         sqlite3_finalize(stmt);
         throw std::runtime_error("Failed to bind scene update fields: " + std::string(sqlite3_errmsg(handle)));
@@ -227,8 +209,7 @@ void SceneRepository::deleteScene(const core::SceneId& sceneId) {
         throw std::runtime_error("Failed to prepare scene delete statement: " + std::string(sqlite3_errmsg(handle)));
     }
 
-    long long idValue = parseId(sceneId);
-    result = sqlite3_bind_int64(stmt, 1, idValue);
+    result = sqlite3_bind_text(stmt, 1, sceneId.value.c_str(), -1, SQLITE_TRANSIENT);
     if (result != SQLITE_OK) {
         sqlite3_finalize(stmt);
         throw std::runtime_error("Failed to bind scene id for delete: " + std::string(sqlite3_errmsg(handle)));

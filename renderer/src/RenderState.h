@@ -3,10 +3,10 @@
 #include <unordered_map>
 #include <vector>
 
+#include <ofMain.h>
+
 #include <projection/core/Feed.h>
 #include <projection/core/Scene.h>
-
-#include "of_compat.h"
 
 namespace projection::renderer {
 

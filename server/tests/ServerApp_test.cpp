@@ -12,7 +12,9 @@ namespace projection::server {
 
 namespace {
 std::string tempDbPath(const std::string& name) {
-    return (std::filesystem::temp_directory_path() / name).string();
+    auto path = std::filesystem::temp_directory_path() / name;
+    std::filesystem::remove(path);
+    return path.string();
 }
 
 int reservePort() {

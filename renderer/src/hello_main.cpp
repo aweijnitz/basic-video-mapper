@@ -1,4 +1,4 @@
-#include "of_compat.h"
+#include <ofMain.h>
 
 #include <chrono>
 #include <csignal>

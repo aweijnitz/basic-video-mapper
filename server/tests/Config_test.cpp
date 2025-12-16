@@ -22,7 +22,7 @@ bool throwsInvalid(const std::vector<const char*>& args) {
 }  // namespace
 
 TEST_CASE("parseServerConfig uses defaults", "[server][config]") {
-    std::vector<const char*> args{"projection_server"};
+    std::vector<const char*> args{"lumi_server"};
 
     auto config = parseArgs(args);
 
@@ -33,7 +33,7 @@ TEST_CASE("parseServerConfig uses defaults", "[server][config]") {
 }
 
 TEST_CASE("parseServerConfig accepts overrides", "[server][config]") {
-    std::vector<const char*> args{"projection_server", "--db", "/tmp/projection.db", "--port", "5050",
+    std::vector<const char*> args{"lumi_server", "--db", "/tmp/projection.db", "--port", "5050",
                                    "--renderer-host", "192.168.0.10", "--renderer-port", "9090"};
 
     auto config = parseArgs(args);
@@ -45,7 +45,7 @@ TEST_CASE("parseServerConfig accepts overrides", "[server][config]") {
 }
 
 TEST_CASE("parseServerConfig accepts inline values", "[server][config]") {
-    std::vector<const char*> args{"projection_server", "--db=/opt/app.db", "--port=9090",
+    std::vector<const char*> args{"lumi_server", "--db=/opt/app.db", "--port=9090",
                                    "--renderer-host=example.com", "--renderer-port=6060"};
 
     auto config = parseArgs(args);
@@ -57,19 +57,19 @@ TEST_CASE("parseServerConfig accepts inline values", "[server][config]") {
 }
 
 TEST_CASE("parseServerConfig rejects missing values", "[server][config]") {
-    std::vector<const char*> args{"projection_server", "--db"};
+    std::vector<const char*> args{"lumi_server", "--db"};
 
     REQUIRE(throwsInvalid(args));
 }
 
 TEST_CASE("parseServerConfig rejects invalid ports", "[server][config]") {
-    std::vector<const char*> args{"projection_server", "--port", "-1"};
+    std::vector<const char*> args{"lumi_server", "--port", "-1"};
 
     REQUIRE(throwsInvalid(args));
 }
 
 TEST_CASE("parseServerConfig rejects unknown options", "[server][config]") {
-    std::vector<const char*> args{"projection_server", "--unknown"};
+    std::vector<const char*> args{"lumi_server", "--unknown"};
 
     REQUIRE(throwsInvalid(args));
 }

@@ -303,14 +303,18 @@ void from_json(const json& j, ProjectSettings& settings) {
 
   if (j.contains("globalConfig")) {
     const auto& globals = j.at("globalConfig");
-    if (!globals.is_object()) {
+    if (globals.is_null()) {
+      // Treat explicit null as an empty object for convenience.
+    } else if (!globals.is_object()) {
       throw std::runtime_error("Field 'globalConfig' must be an object");
     }
-    for (auto it = globals.begin(); it != globals.end(); ++it) {
-      if (!it.value().is_string()) {
-        throw std::runtime_error("Global config values must be strings");
+    if (globals.is_object()) {
+      for (auto it = globals.begin(); it != globals.end(); ++it) {
+        if (!it.value().is_string()) {
+          throw std::runtime_error("Global config values must be strings");
+        }
+        settings.globalConfig[it.key()] = it.value().get<std::string>();
       }
-      settings.globalConfig[it.key()] = it.value().get<std::string>();
     }
   }
 }

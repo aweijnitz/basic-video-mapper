@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Starts/stops the projection_server in the background. Renderer is handled separately.
+# Starts/stops the lumi_server in the background. Renderer is handled separately.
 #
 # Usage:
 #   ./scripts/server.sh start
 #   ./scripts/server.sh stop
 # Environment overrides:
 #   BUILD_DIR     Build directory containing server/ (default: <repo>/build)
-#   SERVER_BIN    Path to projection_server (default: ${BUILD_DIR}/server/projection_server)
+#   SERVER_BIN    Path to lumi_server (default: ${BUILD_DIR}/server/lumi_server)
 #   SERVER_PORT   HTTP port (default: 8080)
 #   RENDERER_HOST Renderer host for control protocol (default: 127.0.0.1)
 #   RENDERER_PORT Renderer port (default: 5050)
 #   SERVER_DB     SQLite DB path (default: <repo>/data/db/projection.db)
 #   SERVER_ARGS   Extra args for server (e.g., "--verbose")
-#   PID_FILE      File to record process ID (default: /tmp/projection-server.pid)
-#   SERVER_LOG    Log file for server stdout/stderr (default: /tmp/projection_server.log)
+#   PID_FILE      File to record process ID (default: /tmp/lumi-server.pid)
+#   SERVER_LOG    Log file for server stdout/stderr (default: /tmp/lumi_server.log)
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-"${ROOT_DIR}/build"}"
-SERVER_BIN="${SERVER_BIN:-${BUILD_DIR}/server/projection_server}"
-PID_FILE="${PID_FILE:-/tmp/projection-server.pid}"
-SERVER_LOG="${SERVER_LOG:-/tmp/projection_server.log}"
+SERVER_BIN="${SERVER_BIN:-${BUILD_DIR}/server/lumi_server}"
+PID_FILE="${PID_FILE:-/tmp/lumi-server.pid}"
+SERVER_LOG="${SERVER_LOG:-/tmp/lumi_server.log}"
 SERVER_PORT="${SERVER_PORT:-8080}"
 RENDERER_PORT="${RENDERER_PORT:-5050}"
 RENDERER_HOST="${RENDERER_HOST:-127.0.0.1}"

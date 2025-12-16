@@ -6,16 +6,22 @@
 #include <string>
 #include <vector>
 
+#include <ofMain.h>
+#if __has_include(<ofxMidi.h>)
+#include <ofxMidi.h>
+#define PROJECTION_HAS_OFX_MIDI 1
+#else
+#define PROJECTION_HAS_OFX_MIDI 0
+#endif
+
 #include "RenderState.h"
 #include "net/RendererServer.h"
-#include "of_compat.h"
 #include "util/InteractionUtils.h"
 
 class ofApp : public ofBaseApp,
-#if !defined(USE_OPENFRAMEWORKS)
-              public ofBaseSoundInput,
-#endif
+#if PROJECTION_HAS_OFX_MIDI
               public ofxMidiListener,
+#endif
               public projection::renderer::RendererCommandHandler {
  public:
   explicit ofApp(int port, bool verbose = false);
@@ -25,8 +31,12 @@ class ofApp : public ofBaseApp,
   void draw() override;
   void exit() override;
 
+#if PROJECTION_HAS_OFX_MIDI
   void audioIn(ofSoundBuffer& input) override;
   void newMidiMessage(ofxMidiMessage& msg) override;
+#else
+  void audioIn(ofSoundBuffer& input) override;
+#endif
 
   void handle(const projection::core::RendererMessage& message) override;
 
@@ -55,12 +65,13 @@ class ofApp : public ofBaseApp,
   std::string rendererRole_;
   std::string rendererVersion_;
 
+#if PROJECTION_HAS_OFX_MIDI
   ofxMidiIn midiIn_{};
+#endif
   float midiBrightness_{1.0f};
 
   ofSoundStream soundStream_{};
   std::vector<float> audioBuffer_{};
-  std::unique_ptr<ofxFft> fft_{};
   float audioScale_{1.0f};
   float smoothedEnergy_{0.0f};
 };

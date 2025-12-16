@@ -43,7 +43,11 @@ int reservePort() {
     return port;
 }
 
-std::string tempDbPath(const std::string& name) { return (std::filesystem::temp_directory_path() / name).string(); }
+std::string tempDbPath(const std::string& name) {
+    auto path = std::filesystem::temp_directory_path() / name;
+    std::filesystem::remove(path);
+    return path.string();
+}
 
 std::unique_ptr<httplib::Client> makeClient(int port) {
     auto client = std::make_unique<httplib::Client>("127.0.0.1", port);

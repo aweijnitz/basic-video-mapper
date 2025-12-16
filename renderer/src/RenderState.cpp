@@ -39,9 +39,11 @@ void RenderState::loadSceneDefinition(const Scene& scene, const std::vector<Feed
     }
 
     VideoFeedResource resource{feed.getId(), {}};
-    resource.player.load(it->second);
-    resource.player.setLoopState(OF_LOOP_NORMAL);
-    resource.player.play();
+    const bool loaded = resource.player.load(it->second);
+    if (loaded) {
+      resource.player.setLoopState(OF_LOOP_NORMAL);
+      resource.player.play();
+    }
     resource.filePath = it->second;
 
     videoFeeds_.emplace(feed.getId().value, std::move(resource));

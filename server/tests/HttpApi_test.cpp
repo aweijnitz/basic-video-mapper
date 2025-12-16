@@ -41,7 +41,9 @@ int reservePort() {
 }
 
 std::string tempDbPath(const std::string& name) {
-    return (std::filesystem::temp_directory_path() / name).string();
+    auto path = std::filesystem::temp_directory_path() / name;
+    std::filesystem::remove(path);
+    return path.string();
 }
 
 struct TestServerContext {
@@ -57,7 +59,7 @@ struct TestServerContext {
           sceneRepo(connection),
           cueRepo(connection),
           projectRepo(connection),
-          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, nullptr) {
+          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, nullptr, true) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }
@@ -153,11 +155,15 @@ std::string cueBody(const std::string& cueId, const std::string& sceneId, const 
 
 std::string projectBody(const std::string& projectId, const std::vector<std::string>& cueOrder,
                         nlohmann::json settings = nlohmann::json::object()) {
+    auto normalizedSettings = settings.empty() ? nlohmann::json::object() : settings;
+    if (!normalizedSettings.contains("globalConfig") || normalizedSettings["globalConfig"].is_null()) {
+        normalizedSettings["globalConfig"] = nlohmann::json::object();
+    }
     nlohmann::json project{{"id", projectId},
                            {"name", "ProjectName"},
                            {"description", "Project description"},
                            {"cueOrder", cueOrder},
-                           {"settings", settings.empty() ? nlohmann::json::object() : settings}};
+                           {"settings", normalizedSettings}};
     return project.dump();
 }
 
@@ -233,9 +239,13 @@ TEST_CASE("HTTP API can create, fetch, update, and delete projects", "[http][int
     REQUIRE(client->Post("/cues", cueBody("cue-1", "scene-1", "s1"), "application/json")->status == 201);
 
     nlohmann::json settings{{"controllers", {{"fader1", "master"}}}, {"midiChannels", {1, 2}}, {"globalConfig", {}}};
-    auto createRes = client->Post("/projects", projectBody("project-1", {"cue-1"}, settings), "application/json");
+    auto payload = projectBody("project-1", {"cue-1"}, settings);
+    auto createRes = client->Post("/projects", payload, "application/json");
     REQUIRE(createRes != nullptr);
-    REQUIRE(createRes->status == 201);
+    if (createRes->status != 201) {
+        throw std::runtime_error("Project create failed with status " + std::to_string(createRes->status) +
+                                 " body: " + createRes->body + " payload: " + payload);
+    }
 
     auto listRes = client->Get("/projects");
     REQUIRE(listRes != nullptr);

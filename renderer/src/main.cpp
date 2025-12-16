@@ -1,5 +1,6 @@
 #include "ofApp.h"
-#include "of_compat.h"
+
+#include <ofMain.h>
 
 #include <iostream>
 #include <cstdlib>

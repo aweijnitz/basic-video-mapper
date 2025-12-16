@@ -2,6 +2,7 @@
 
 #include <sqlite3.h>
 
+#include <chrono>
 #include <stdexcept>
 #include <string>
 
@@ -10,15 +11,9 @@
 namespace projection::server::repo {
 
 namespace {
-long long parseId(const core::FeedId& id) {
-    if (id.value.empty()) {
-        return -1;
-    }
-    try {
-        return std::stoll(id.value);
-    } catch (const std::exception& e) {
-        throw std::runtime_error(std::string("Invalid feed id: ") + e.what());
-    }
+std::string generateId() {
+    auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+    return "feed-" + std::to_string(now);
 }
 }
 
@@ -30,28 +25,20 @@ core::Feed FeedRepository::createFeed(const core::Feed& feed) {
         throw std::runtime_error("SQLite connection is not open");
     }
 
-    const bool hasId = !feed.getId().value.empty();
-    std::string sql;
-    if (hasId) {
-        sql = "INSERT INTO feeds(id, name, type, config_json) VALUES(?, ?, ?, ?);";
-    } else {
-        sql = "INSERT INTO feeds(name, type, config_json) VALUES(?, ?, ?);";
-    }
+    const std::string idValue = feed.getId().value.empty() ? generateId() : feed.getId().value;
+    const char* sql = "INSERT INTO feeds(id, name, type, config_json) VALUES(?, ?, ?, ?);";
 
     sqlite3_stmt* stmt = nullptr;
-    int result = sqlite3_prepare_v2(handle, sql.c_str(), -1, &stmt, nullptr);
+    int result = sqlite3_prepare_v2(handle, sql, -1, &stmt, nullptr);
     if (result != SQLITE_OK) {
         throw std::runtime_error("Failed to prepare feed insert statement: " + std::string(sqlite3_errmsg(handle)));
     }
 
     int bindIndex = 1;
-    if (hasId) {
-        long long idValue = parseId(feed.getId());
-        result = sqlite3_bind_int64(stmt, bindIndex++, idValue);
-        if (result != SQLITE_OK) {
-            sqlite3_finalize(stmt);
-            throw std::runtime_error("Failed to bind feed id: " + std::string(sqlite3_errmsg(handle)));
-        }
+    result = sqlite3_bind_text(stmt, bindIndex++, idValue.c_str(), -1, SQLITE_TRANSIENT);
+    if (result != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        throw std::runtime_error("Failed to bind feed id: " + std::string(sqlite3_errmsg(handle)));
     }
 
     result = sqlite3_bind_text(stmt, bindIndex++, feed.getName().c_str(), -1, SQLITE_TRANSIENT);
@@ -59,7 +46,6 @@ core::Feed FeedRepository::createFeed(const core::Feed& feed) {
         sqlite3_finalize(stmt);
         throw std::runtime_error("Failed to bind feed name: " + std::string(sqlite3_errmsg(handle)));
     }
-
     std::string typeString = core::toString(feed.getType());
     result = sqlite3_bind_text(stmt, bindIndex++, typeString.c_str(), -1, SQLITE_TRANSIENT);
     if (result != SQLITE_OK) {
@@ -82,11 +68,7 @@ core::Feed FeedRepository::createFeed(const core::Feed& feed) {
     sqlite3_finalize(stmt);
 
     core::Feed created = feed;
-    if (!hasId) {
-        long long newId = sqlite3_last_insert_rowid(handle);
-        created.setId(core::FeedId(std::to_string(newId)));
-    }
-
+    created.setId(core::FeedId(idValue));
     return created;
 }
 
@@ -106,12 +88,12 @@ std::vector<core::Feed> FeedRepository::listFeeds() {
 
     std::vector<core::Feed> feeds;
     while ((result = sqlite3_step(stmt)) == SQLITE_ROW) {
-        long long idValue = sqlite3_column_int64(stmt, 0);
+        const unsigned char* idText = sqlite3_column_text(stmt, 0);
         const unsigned char* nameText = sqlite3_column_text(stmt, 1);
         const unsigned char* typeText = sqlite3_column_text(stmt, 2);
         const unsigned char* configText = sqlite3_column_text(stmt, 3);
 
-        std::string idString = std::to_string(idValue);
+        std::string idString = idText ? reinterpret_cast<const char*>(idText) : "";
         std::string name = nameText ? reinterpret_cast<const char*>(nameText) : "";
         std::string typeStr = typeText ? reinterpret_cast<const char*>(typeText) : "";
         std::string configJson = configText ? reinterpret_cast<const char*>(configText) : "";
@@ -147,8 +129,7 @@ std::optional<core::Feed> FeedRepository::findFeedById(const core::FeedId& feedI
         throw std::runtime_error("Failed to prepare feed select statement: " + std::string(sqlite3_errmsg(handle)));
     }
 
-    long long idValue = parseId(feedId);
-    result = sqlite3_bind_int64(stmt, 1, idValue);
+    result = sqlite3_bind_text(stmt, 1, feedId.value.c_str(), -1, SQLITE_TRANSIENT);
     if (result != SQLITE_OK) {
         sqlite3_finalize(stmt);
         throw std::runtime_error("Failed to bind feed id: " + std::string(sqlite3_errmsg(handle)));
@@ -156,12 +137,12 @@ std::optional<core::Feed> FeedRepository::findFeedById(const core::FeedId& feedI
 
     result = sqlite3_step(stmt);
     if (result == SQLITE_ROW) {
-        long long idValueRead = sqlite3_column_int64(stmt, 0);
+        const unsigned char* idText = sqlite3_column_text(stmt, 0);
         const unsigned char* nameText = sqlite3_column_text(stmt, 1);
         const unsigned char* typeText = sqlite3_column_text(stmt, 2);
         const unsigned char* configText = sqlite3_column_text(stmt, 3);
 
-        std::string idString = std::to_string(idValueRead);
+        std::string idString = idText ? reinterpret_cast<const char*>(idText) : "";
         std::string name = nameText ? reinterpret_cast<const char*>(nameText) : "";
         std::string typeStr = typeText ? reinterpret_cast<const char*>(typeText) : "";
         std::string configJson = configText ? reinterpret_cast<const char*>(configText) : "";
@@ -200,8 +181,7 @@ core::Feed FeedRepository::updateFeed(const core::Feed& feed) {
     result = sqlite3_bind_text(stmt, 1, feed.getName().c_str(), -1, SQLITE_TRANSIENT);
     result |= sqlite3_bind_text(stmt, 2, typeString.c_str(), -1, SQLITE_TRANSIENT);
     result |= sqlite3_bind_text(stmt, 3, feed.getConfigJson().c_str(), -1, SQLITE_TRANSIENT);
-    long long idValue = parseId(feed.getId());
-    result |= sqlite3_bind_int64(stmt, 4, idValue);
+    result |= sqlite3_bind_text(stmt, 4, feed.getId().value.c_str(), -1, SQLITE_TRANSIENT);
     if (result != SQLITE_OK) {
         sqlite3_finalize(stmt);
         throw std::runtime_error("Failed to bind feed update fields: " + std::string(sqlite3_errmsg(handle)));
@@ -227,8 +207,7 @@ void FeedRepository::deleteFeed(const core::FeedId& id) {
     if (result != SQLITE_OK) {
         throw std::runtime_error("Failed to prepare feed delete statement: " + std::string(sqlite3_errmsg(handle)));
     }
-    long long idValue = parseId(id);
-    result = sqlite3_bind_int64(stmt, 1, idValue);
+    result = sqlite3_bind_text(stmt, 1, id.value.c_str(), -1, SQLITE_TRANSIENT);
     if (result != SQLITE_OK) {
         sqlite3_finalize(stmt);
         throw std::runtime_error("Failed to bind feed id for delete: " + std::string(sqlite3_errmsg(handle)));

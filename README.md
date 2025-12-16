@@ -80,6 +80,7 @@ graph TD
 
 - **SQLite3** headers and library on the host (e.g., `libsqlite3-dev` on Debian/Ubuntu or Homebrew `sqlite` on macOS).
 - No external database service is required; the server reads/writes a local file-backed DB at `./data/db/projection.db` by default.
+- **openFrameworks** (`of_v0.12.1_osx_release` tested) is required for the renderer; set `OPENFRAMEWORKS_DIR` to the install that contains `libs/openFrameworks/ofMain.h`. MIDI control requires the `ofxMidi` addon in that installation (renderer builds without it but MIDI input is disabled).
 
 __On MacOSX__ 
 
@@ -94,39 +95,40 @@ export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 
 ## Build
 
-### Manual build: server (`projection_server`)
+### Manual build: server (`lumi_server`)
 
 ```bash
 # Configure once (re-use the same build dir for repeated builds)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
 # Build only the server binary
-cmake --build build --target projection_server
+cmake --build build --target lumi_server
 ```
 
-- Binary output: `./build/server/projection_server`
+- Binary output: `./build/server/lumi_server`
 
-### Manual build: renderer (`renderer_app`)
+### Manual build: renderer (`renderer_default`)
 
 ```bash
 # If you already configured `build/` you can skip the first line
-cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPENFRAMEWORKS_DIR=/path/to/of_v0.12.1_osx_release
 
 # Build only the renderer binary
-cmake --build build --target renderer_app
+cmake --build build --target renderer_default
 ```
 
-- Binary output: `./build/renderer/renderer_app`
+- Binary output: `./build/renderer/renderer_default`
 
 ### Convenience build script
 
 ```bash
-./scripts/build_all.sh           # builds projection_server + renderer_app into ./build
+./scripts/build_all.sh           # builds lumi_server + renderer_default into ./build
 BUILD_TYPE=Debug ./scripts/build_all.sh
 BUILD_DIR=/tmp/pmapper ./scripts/build_all.sh
 ```
 
 - Defaults to `RelWithDebInfo` into `./build`. Additional arguments are passed through to `cmake --build`.
+- Set `OPENFRAMEWORKS_DIR` to your openFrameworks installation before configuring/building the renderer.
 
 ## Run
 
@@ -135,7 +137,7 @@ BUILD_DIR=/tmp/pmapper ./scripts/build_all.sh
 
 ```bash
 # Start the server with explicit configuration
-./build/server/projection_server --db ./data/db/projection.db --port 8080
+./build/server/lumi_server --db ./data/db/projection.db --port 8080
 ```
 
 Example API calls (HTTP+JSON):
@@ -158,19 +160,19 @@ curl http://localhost:8080/scenes
 
 ### Renderer integration
 
-Two long-running processes work together: the **server** (`projection_server`) and the **renderer** (`renderer_app`).
+Two long-running processes work together: the **server** (`lumi_server`) and the **renderer** (`renderer_default`).
 
 - **Default ports**: HTTP API on **8080**; renderer TCP control on **5050**.
 - **Start the renderer** (in a separate terminal):
 
   ```bash
-  ./build/renderer/renderer_app --port 5050
+  ./build/renderer/renderer_default --port 5050
   ```
 
 - **Start the server** and point it at the renderer:
 
   ```bash
-  ./build/server/projection_server \
+  ./build/server/lumi_server \
     --db ./data/db/projection.db \
     --port 8080 \
     --renderer-host 127.0.0.1 \
@@ -204,12 +206,12 @@ Follow this minimal recipe to see the full end-to-end chain (server + renderer +
 
 3. **Start the renderer** (listens for control protocol commands on TCP port 5050 by default):
    ```bash
-   ./build/renderer/renderer_app --port 5050
+   ./build/renderer/renderer_default --port 5050
    ```
 
 4. **Start the server** (HTTP API on 8080; configured to talk to the renderer at 127.0.0.1:5050):
    ```bash
-   ./build/server/projection_server \
+   ./build/server/lumi_server \
      --db ./data/db/projection.db \
      --port 8080 \
      --renderer-host 127.0.0.1 \

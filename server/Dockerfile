@@ -19,4 +19,4 @@ EXPOSE 8080
 
 VOLUME ["/data/db", "/data/assets"]
 
-CMD ["/app/build/server/projection_server"]
+CMD ["/app/build/server/lumi_server"]
