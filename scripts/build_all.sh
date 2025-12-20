@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build both the lumi_server and renderer_default binaries (requires openFrameworks).
+# Build server, renderer, command line client, and tests (requires openFrameworks).
 # Usage:
 #   ./scripts/build_all.sh                   # builds into ./build with RelWithDebInfo
 #   ./scripts/build_all.sh --clean           # clean build directory before configuring
@@ -55,11 +55,24 @@ CONFIG_ARGS=(-S "${ROOT_DIR}" -B "${BUILD_DIR}" -DCMAKE_BUILD_TYPE="${BUILD_TYPE
 echo "Configuring with openFrameworks at ${OPENFRAMEWORKS_DIR}"
 
 cmake "${CONFIG_ARGS[@]}"
+TARGETS=(
+  lumi_server
+  renderer_default
+  commandlineclient
+  projection_core_tests
+  lumi_server_tests
+  renderer_default_tests
+)
+
 if ((${#EXTRA_ARGS[@]})); then
-  cmake --build "${BUILD_DIR}" --target lumi_server renderer_default "${EXTRA_ARGS[@]}"
+  cmake --build "${BUILD_DIR}" --target "${TARGETS[@]}" "${EXTRA_ARGS[@]}"
 else
-  cmake --build "${BUILD_DIR}" --target lumi_server renderer_default
+  cmake --build "${BUILD_DIR}" --target "${TARGETS[@]}"
 fi
 
 echo "Built server:    ${BUILD_DIR}/server/lumi_server"
 echo "Built renderer:  ${BUILD_DIR}/renderer/renderer_default"
+echo "Built client:    ${BUILD_DIR}/clients/commandlineclient/commandlineclient"
+echo "Built tests:     ${BUILD_DIR}/core/projection_core_tests"
+echo "Built tests:     ${BUILD_DIR}/server/lumi_server_tests"
+echo "Built tests:     ${BUILD_DIR}/renderer/renderer_default_tests"

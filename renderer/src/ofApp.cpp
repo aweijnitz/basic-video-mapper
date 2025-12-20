@@ -28,7 +28,14 @@ void ofApp::setup() {
   const int outputChannels = 0;
   const int sampleRate = 44100;
   const int bufferSize = 512;
-  soundStream_.setup(this, outputChannels, inputChannels, sampleRate, bufferSize, 4);
+  ofSoundStreamSettings soundSettings;
+  soundSettings.setInListener(this);
+  soundSettings.sampleRate = sampleRate;
+  soundSettings.numInputChannels = inputChannels;
+  soundSettings.numOutputChannels = outputChannels;
+  soundSettings.bufferSize = bufferSize;
+  soundSettings.numBuffers = 4;
+  soundStream_.setup(soundSettings);
   if (verbose_) {
     std::cerr << "[renderer] audio/midi initialized" << std::endl;
   }
