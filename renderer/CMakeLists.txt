@@ -124,6 +124,8 @@ target_link_libraries(renderer_state
 target_compile_features(renderer_state PUBLIC cxx_std_17)
 
 add_library(renderer_net
+    ${RENDERER_SRC_DIR}/net/RendererClient.cpp
+    ${RENDERER_SRC_DIR}/net/RendererClient.h
     ${RENDERER_SRC_DIR}/net/RendererServer.cpp
     ${RENDERER_SRC_DIR}/net/RendererServer.h
 )
@@ -181,6 +183,7 @@ target_link_options(renderer_hello PRIVATE ${OPENFRAMEWORKS_FRAMEWORK_OPTIONS})
 add_executable(renderer_default_tests
     ${RENDERER_SRC_DIR}/util/InteractionUtils.cpp
     ${RENDERER_SRC_DIR}/util/InteractionUtils.h
+    tests/RendererClient_test.cpp
     tests/RendererServer_test.cpp
     tests/RenderState_test.cpp
     tests/InteractionUtils_test.cpp

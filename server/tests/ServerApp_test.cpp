@@ -35,50 +35,10 @@ int reservePort() {
     return port;
 }
 
-class DummyRendererServer {
-public:
-    explicit DummyRendererServer(int port) {
-        listener_ = ::socket(AF_INET, SOCK_STREAM, 0);
-        REQUIRE(listener_ >= 0);
-
-        sockaddr_in addr{};
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        addr.sin_port = htons(static_cast<uint16_t>(port));
-
-        REQUIRE(::bind(listener_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0);
-        REQUIRE(::listen(listener_, 1) == 0);
-
-        thread_ = std::thread([this] {
-            sockaddr_in clientAddr{};
-            socklen_t clientLen = sizeof(clientAddr);
-            int client = ::accept(listener_, reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
-            if (client >= 0) {
-                char buffer[1];
-                (void)::recv(client, buffer, sizeof(buffer), 0);
-                ::close(client);
-            }
-        });
-    }
-
-    ~DummyRendererServer() {
-        if (listener_ >= 0) {
-            ::shutdown(listener_, SHUT_RDWR);
-            ::close(listener_);
-        }
-        if (thread_.joinable()) {
-            thread_.join();
-        }
-    }
-
-private:
-    int listener_{-1};
-    std::thread thread_;
-};
 }  // namespace
 
 TEST_CASE("ServerApp constructs with configuration", "[server][app]") {
-    ServerConfig config{tempDbPath("server_app_construct.db"), 8080, "127.0.0.1", 5555};
+    ServerConfig config{tempDbPath("server_app_construct.db"), 8080, 5555};
     bool threw = false;
     try {
         ServerApp app{config};
@@ -93,8 +53,7 @@ TEST_CASE("ServerApp constructs with configuration", "[server][app]") {
 TEST_CASE("ServerApp run returns status code", "[server][app]") {
     int httpPort = reservePort();
     int rendererPort = reservePort();
-    DummyRendererServer renderer(rendererPort);
-    ServerConfig config{tempDbPath("server_app_run.db"), httpPort, "127.0.0.1", rendererPort};
+    ServerConfig config{tempDbPath("server_app_run.db"), httpPort, rendererPort};
     ServerApp app{config};
 
     int status = -1;

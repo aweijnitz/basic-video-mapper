@@ -10,7 +10,7 @@ TEST_CASE("RendererProtocol round trip Hello", "[RendererProtocol]") {
   RendererMessage message{};
   message.type = RendererMessageType::Hello;
   message.commandId = "cmd-hello";
-  message.hello = HelloMessage{"0.1.0", "renderer"};
+  message.hello = HelloMessage{"0.1.0", "renderer", "stage-left"};
 
   json j = message;
   auto parsed = j.get<RendererMessage>();
@@ -94,7 +94,7 @@ TEST_CASE("RendererProtocol requires payload for typed messages", "[RendererProt
 }
 
 TEST_CASE("RendererProtocol requires commandId", "[RendererProtocol]") {
-  json missingCommandId = {{"type", "hello"}, {"payload", json{{"version", "0.1"}, {"role", "renderer"}}}};
+  json missingCommandId = {{"type", "hello"}, {"payload", json{{"version", "0.1"}, {"role", "renderer"}, {"name", "r1"}}}};
 
   bool threw = false;
   try {
@@ -105,4 +105,3 @@ TEST_CASE("RendererProtocol requires commandId", "[RendererProtocol]") {
   }
   REQUIRE(threw);
 }
-

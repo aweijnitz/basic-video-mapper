@@ -6,6 +6,8 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
+#include <string>
+#include <iostream>
 
 #include "net/RendererServer.h"
 
@@ -21,7 +23,7 @@ RendererMessage sampleHelloMessage() {
   RendererMessage message{};
   message.type = RendererMessageType::Hello;
   message.commandId = "cmd-1";
-  message.hello = projection::core::HelloMessage{"1.0.0", "renderer"};
+  message.hello = projection::core::HelloMessage{"1.0.0", "renderer", "stage-left"};
   return message;
 }
 
@@ -43,6 +45,7 @@ TEST_CASE("parseRendererMessageLine parses valid JSON", "[renderer]") {
   REQUIRE(parsed.hello);
   REQUIRE(parsed.hello->version == "1.0.0");
   REQUIRE(parsed.hello->role == "renderer");
+  REQUIRE(parsed.hello->name == "stage-left");
 }
 
 TEST_CASE("parseRendererMessageLine throws on invalid JSON", "[renderer]") {
@@ -83,12 +86,23 @@ TEST_CASE("RendererServer accepts a message and responds with ack", "[renderer]"
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
+  if (port == 0) {
+    const auto error = server.lastError();
+    if (error.find("Operation not permitted") != std::string::npos) {
+      std::cerr << "Skipping socket test: " << error << std::endl;
+      server.stop();
+      return;
+    }
+  }
   REQUIRE(port != 0);
 
   int client = socket(AF_INET, SOCK_STREAM, 0);
   REQUIRE(client >= 0);
 
   sockaddr_in addr{};
+#ifdef __APPLE__
+  addr.sin_len = sizeof(addr);
+#endif
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
   addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
@@ -117,4 +131,3 @@ TEST_CASE("RendererServer accepts a message and responds with ack", "[renderer]"
   server.stop();
   close(client);
 }
-

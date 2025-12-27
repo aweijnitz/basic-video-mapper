@@ -10,7 +10,7 @@
 #include "repo/FeedRepository.h"
 #include "repo/ProjectRepository.h"
 #include "repo/SceneRepository.h"
-#include "renderer/RendererClient.h"
+#include "renderer/RendererRegistry.h"
 
 namespace projection::server {
 
@@ -42,30 +42,12 @@ int ServerApp::run() {
         cueRepository_ = std::make_unique<repo::CueRepository>(*connection_);
         projectRepository_ = std::make_unique<repo::ProjectRepository>(*connection_);
 
-        rendererClient_ = std::make_shared<renderer::RendererClient>(config_.rendererHost, config_.rendererPort);
-        log("Connecting to renderer at " + config_.rendererHost + ":" + std::to_string(config_.rendererPort));
-        bool connected = false;
-        for (int attempt = 1; attempt <= config_.rendererConnectRetries; ++attempt) {
-            try {
-                rendererClient_->connect();
-                connected = true;
-                break;
-            } catch (const std::exception& ex) {
-                std::cerr << "Renderer connect attempt " << attempt << "/" << config_.rendererConnectRetries
-                          << " failed: " << ex.what() << std::endl;
-                if (attempt == config_.rendererConnectRetries) {
-                    throw;
-                }
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-            }
-        }
-        if (connected) {
-            std::cout << "Connected to renderer at " << config_.rendererHost << ":" << config_.rendererPort
-                      << std::endl;
-        }
+        rendererRegistry_ = std::make_shared<renderer::RendererRegistry>(config_.verbose);
+        log("Listening for renderers on port " + std::to_string(config_.rendererPort));
+        rendererRegistry_->start(config_.rendererPort);
 
         httpServer_ = std::make_unique<http::HttpServer>(*feedRepository_, *sceneRepository_, *cueRepository_,
-                                                         *projectRepository_, rendererClient_, config_.verbose);
+                                                         *projectRepository_, rendererRegistry_, config_.verbose);
         std::cout << "Database initialized at '" << dbPath.string() << "'" << std::endl;
         std::cout << "HTTP server listening on port " << config_.httpPort << std::endl;
         httpServer_->start(config_.httpPort);
@@ -79,6 +61,9 @@ int ServerApp::run() {
 }
 
 void ServerApp::stop() {
+    if (rendererRegistry_) {
+        rendererRegistry_->stop();
+    }
     if (httpServer_) {
         httpServer_->stop();
     }

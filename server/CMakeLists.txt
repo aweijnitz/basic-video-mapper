@@ -29,8 +29,8 @@ add_library(lumi_server_lib
     ${SERVER_SOURCE_DIR}/db/SchemaMigrations.h
     ${SERVER_SOURCE_DIR}/http/HttpServer.cpp
     ${SERVER_SOURCE_DIR}/http/HttpServer.h
-    ${SERVER_SOURCE_DIR}/renderer/RendererClient.cpp
-    ${SERVER_SOURCE_DIR}/renderer/RendererClient.h
+    ${SERVER_SOURCE_DIR}/renderer/RendererRegistry.cpp
+    ${SERVER_SOURCE_DIR}/renderer/RendererRegistry.h
     ${SERVER_SOURCE_DIR}/repo/FeedRepository.cpp
     ${SERVER_SOURCE_DIR}/repo/FeedRepository.h
     ${SERVER_SOURCE_DIR}/repo/SurfaceRepository.cpp
@@ -95,8 +95,7 @@ add_executable(lumi_server_tests
     tests/HttpScenesSurfaces_test.cpp
     tests/HttpRendererIntegration_test.cpp
     tests/DemoFlow_test.cpp
-    tests/RendererClient_test.cpp
-    tests/RendererClient_LoadSceneDefinition_test.cpp
+    tests/RendererRegistry_test.cpp
 )
 
 target_compile_features(lumi_server_tests PRIVATE cxx_std_17)

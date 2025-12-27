@@ -10,8 +10,7 @@ set -euo pipefail
 #   BUILD_DIR     Build directory containing server/ (default: <repo>/build)
 #   SERVER_BIN    Path to lumi_server (default: ${BUILD_DIR}/server/lumi_server)
 #   SERVER_PORT   HTTP port (default: 8080)
-#   RENDERER_HOST Renderer host for control protocol (default: 127.0.0.1)
-#   RENDERER_PORT Renderer port (default: 5050)
+#   RENDERER_PORT Renderer listen port (default: 5050)
 #   SERVER_DB     SQLite DB path (default: <repo>/data/db/projection.db)
 #   SERVER_ARGS   Extra args for server (e.g., "--verbose")
 #   PID_FILE      File to record process ID (default: /tmp/lumi-server.pid)
@@ -24,7 +23,6 @@ PID_FILE="${PID_FILE:-/tmp/lumi-server.pid}"
 SERVER_LOG="${SERVER_LOG:-/tmp/lumi_server.log}"
 SERVER_PORT="${SERVER_PORT:-8080}"
 RENDERER_PORT="${RENDERER_PORT:-5050}"
-RENDERER_HOST="${RENDERER_HOST:-127.0.0.1}"
 SERVER_DB="${SERVER_DB:-${ROOT_DIR}/data/db/projection.db}"
 
 require_binary() {
@@ -81,7 +79,6 @@ start() {
     "$SERVER_BIN"
     --db "$SERVER_DB"
     --port "$SERVER_PORT"
-    --renderer-host "$RENDERER_HOST"
     --renderer-port "$RENDERER_PORT"
   )
   if [[ -n "${SERVER_ARGS:-}" ]]; then
@@ -90,7 +87,7 @@ start() {
     server_cmd+=("${extra_args[@]}")
   fi
 
-  echo "Starting server (HTTP ${SERVER_PORT}, renderer ${RENDERER_HOST}:${RENDERER_PORT}) -> $SERVER_LOG"
+  echo "Starting server (HTTP ${SERVER_PORT}, renderer listen ${RENDERER_PORT}) -> $SERVER_LOG"
   "${server_cmd[@]}" >"$SERVER_LOG" 2>&1 &
   local server_pid=$!
   sleep 0.3

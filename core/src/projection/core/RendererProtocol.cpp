@@ -57,7 +57,7 @@ void from_json(const json& j, RendererMessageType& type) {
 }
 
 void to_json(json& j, const HelloMessage& message) {
-  j = json{{"version", message.version}, {"role", message.role}};
+  j = json{{"version", message.version}, {"role", message.role}, {"name", message.name}};
 }
 
 void from_json(const json& j, HelloMessage& message) {
@@ -66,6 +66,7 @@ void from_json(const json& j, HelloMessage& message) {
   }
   message.version = requireString(j, "version");
   message.role = requireString(j, "role");
+  message.name = requireString(j, "name");
 }
 
 void to_json(json& j, const AckMessage& message) { j = json{{"commandId", message.commandId}}; }
@@ -264,4 +265,3 @@ void from_json(const json& j, RendererMessage& message) {
 }
 
 }  // namespace projection::core
-

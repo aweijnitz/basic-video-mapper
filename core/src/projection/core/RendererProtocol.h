@@ -39,9 +39,10 @@ struct RendererMessageBase {
 struct HelloMessage {
   std::string version;
   std::string role;
+  std::string name;
 
   bool operator==(const HelloMessage& other) const {
-    return version == other.version && role == other.role;
+    return version == other.version && role == other.role && name == other.name;
   }
 };
 
@@ -138,4 +139,3 @@ void to_json(nlohmann::json& j, const RendererMessage& message);
 void from_json(const nlohmann::json& j, RendererMessage& message);
 
 }  // namespace projection::core
-

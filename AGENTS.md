@@ -14,7 +14,7 @@ This project is a **projection/video mapping engine** that:
 
 - Runs on **Raspberry Pi** and **macOS**.
 - Renders multiple video/graphics feeds onto skewed surfaces (rectangles, quads, meshes) in real time on a **projector**.
-- Is **interactive**, driven by **MIDI**, **audio analysis (FFT)**, LFOs, and remote control via **client/server APIs**.
+- Is **interactive**, driven by **MIDI**, **audio input energy**, and remote control via **client/server APIs**.
 - Persists scenes, cues, and configuration in an **embedded SQLite3** database file and stores media assets on the filesystem.
 
 High-level goals:
@@ -48,18 +48,19 @@ The repo is structured as a C++-oriented monorepo with four main components:
      - Manage asset metadata (files are stored on the host filesystem).
      - Expose a **remote API** over TCP/IP to clients.
      - Coordinate with the **Renderer** process to apply changes & control playback.
+     - Listen for renderer connections and keep an in-memory registry of connected renderers by unique name.
    - The **server machine is physically connected to the projector** (via the Renderer).
-   - The server exposes a minimal **HTTP+JSON** API with `/feeds` and `/scenes` endpoints for CRUD-style interactions.
+   - The server exposes a **HTTP+JSON** API with `/feeds`, `/scenes`, `/cues`, `/projects`, `/renderer/*`, and `/demo/*` endpoints.
    - Persistence is handled through the DB module (e.g., `db::SqliteConnection`, `db::SchemaMigrations`) and repository layer.
    - HTTP transport is implemented with the vendored single-header **cpp-httplib** server (`server/third_party/httplib.h`) inside the `http::HttpServer` wrapper.
 
 3. **Renderer (`/renderer`)**
-   - Language: **C++** using **openFrameworks** + addons (e.g. `ofxPiMapper`, `ofxMidi`, `ofxFft`).
+   - Language: **C++** using **openFrameworks** + addons (e.g. `ofxMidi`).
    - Responsibility:
      - Real-time rendering of scenes on the projector display.
      - Handle MIDI input, audio input, and apply LFOs.
      - Render multiple video feeds mapped to skewed rectangles/quads/meshes.
-   - Communicates with the Server via a local **control protocol** (see §4.3).
+   - Communicates with the Server via a local **control protocol**.
 
 4. **Clients (`/clients/...`)**
    - Primary implementations: **C++** (e.g. CLI via standard C++ + a networking library).
@@ -88,12 +89,17 @@ The repo is structured as a C++-oriented monorepo with four main components:
     - “Play / Pause / Seek cue X”
   - Renderer processes commands and updates its internal representation.
 
+- **Renderer → Server**
+  - Connects to the server on the renderer port and sends a `Hello` message containing its unique name (used as the renderer id).
+  - Server rejects duplicate names and returns an error response to the renderer.
+
 - **Renderer → Projector**
   - Fullscreen rendering window on the projector display (server machine’s GPU output).
 
 > **Renderer protocol & inputs:**
 > - `LoadSceneDefinition` is a supported control message for sending a full Scene plus the referenced Feeds in one payload.
-> - The renderer consumes MIDI via `ofxMidi` (e.g., CC #1 mapped to brightness) and audio input via `ofxFft` (FFT amplitude modulates scale).
+> - `Hello` payloads from renderers must include a unique `name` field; the server uses this to register each renderer.
+> - The renderer consumes MIDI via `ofxMidi` (e.g., CC #1 mapped to brightness) and audio input energy to modulate scale.
 
 ### 2.2 Project Model & API Surface
 - **Project fields:** `id`, `name`, `description`, ordered `cueOrder`, and `settings` (controllers map, MIDI channels, global config key/values).
@@ -158,7 +164,7 @@ Examples:
 - Server code must include tests covering the DB layer, repository layer, and HTTP API handlers.
 
 ### Build notes
-- The root `CMakeLists.txt` enables testing and pulls in the `/core` and `/server` subdirectories as part of the default build.
+- The root `CMakeLists.txt` enables testing and pulls in `/core`, `/server`, `/renderer`, and `/clients/commandlineclient`.
 - The core library target is named `projection_core`; it is built as a C++17 target from `core/src`.
 - Catch2 is provided locally under `core/third_party/catch2` (lightweight harness plus `Catch2WithMain` target) for unit tests,
   and the test executable is registered with `add_test` for ctest integration.
@@ -172,3 +178,4 @@ Examples:
 ### Open questions / TODOs
 - Schema evolution for SQLite3: migrations tracked via a schema version table under `/server`.
 - Validate performance on Raspberry Pi with the embedded DB file (consider WAL mode if needed in the future).
+- Renderer roadmap: FFT analysis, LFO modulation, and optional ofxPiMapper integration.

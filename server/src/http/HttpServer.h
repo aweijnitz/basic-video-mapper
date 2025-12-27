@@ -7,7 +7,7 @@
 #include "repo/SceneRepository.h"
 #include "repo/CueRepository.h"
 #include "repo/ProjectRepository.h"
-#include "renderer/RendererClient.h"
+#include "renderer/RendererRegistry.h"
 
 namespace projection::server::http {
 
@@ -15,7 +15,7 @@ class HttpServer {
 public:
     HttpServer(repo::FeedRepository& feedRepository, repo::SceneRepository& sceneRepository,
                repo::CueRepository& cueRepository, repo::ProjectRepository& projectRepository,
-               std::shared_ptr<renderer::RendererClient> rendererClient = nullptr, bool verbose = false);
+               std::shared_ptr<renderer::RendererRegistry> rendererRegistry = nullptr, bool verbose = false);
 
     // Starts listening on the provided port. This call blocks until stop() is invoked
     // from another thread.
@@ -37,7 +37,7 @@ private:
     repo::SceneRepository& sceneRepository_;
     repo::CueRepository& cueRepository_;
     repo::ProjectRepository& projectRepository_;
-    std::shared_ptr<renderer::RendererClient> rendererClient_;
+    std::shared_ptr<renderer::RendererRegistry> rendererRegistry_;
     std::unique_ptr<::httplib::Server> server_;
     bool verbose_{false};
 };

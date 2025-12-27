@@ -9,13 +9,17 @@ set -euo pipefail
 # Environment overrides:
 #   BUILD_DIR       Build dir containing renderer/ (default: <repo>/build)
 #   RENDERER_BIN    Path to renderer_default (default: ${BUILD_DIR}/renderer/renderer_default)
-#   RENDERER_PORT   Control port (default: 5050)
+#   RENDERER_HOST   Server host (default: 127.0.0.1)
+#   RENDERER_PORT   Server port (default: 5050)
+#   RENDERER_NAME   Renderer name (default: renderer-<pid>)
 #   RENDERER_ARGS   Extra args (e.g., "--verbose")
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${BUILD_DIR:-"${ROOT_DIR}/build"}"
 RENDERER_BIN="${RENDERER_BIN:-${BUILD_DIR}/renderer/renderer_default}"
+RENDERER_HOST="${RENDERER_HOST:-127.0.0.1}"
 RENDERER_PORT="${RENDERER_PORT:-5050}"
+RENDERER_NAME="${RENDERER_NAME:-renderer-$$}"
 
 require_binary() {
   local bin="$1"
@@ -47,5 +51,6 @@ if [[ ${#EXTRA_RENDERER_ARGS[@]} -gt 0 ]]; then
 fi
 
 require_binary "$RENDERER_BIN" "renderer"
-echo "Starting renderer in foreground on port ${RENDERER_PORT}..."
-RENDERER_PORT="${RENDERER_PORT}" exec "$RENDERER_BIN" "${CMD_ARGS[@]}"
+echo "Starting renderer (server ${RENDERER_HOST}:${RENDERER_PORT}, name ${RENDERER_NAME})..."
+RENDERER_HOST="${RENDERER_HOST}" RENDERER_PORT="${RENDERER_PORT}" RENDERER_NAME="${RENDERER_NAME}" \
+  exec "$RENDERER_BIN" "${CMD_ARGS[@]}"

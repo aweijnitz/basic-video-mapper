@@ -3,7 +3,7 @@
 A modular, open-source **projection/video mapping engine** written primarily in **C++**, designed to run on **Raspberry Pi** and **macOS**.
 
 - Render multiple real-time **video feeds** onto **skewed rectangles/quads/meshes**.
-- Control playback and parameters via **MIDI**, **audio analysis (FFT)**, LFOs, and **remote clients**.
+- Control playback and parameters via **MIDI**, **audio input energy**, and **remote clients**.
 - Persist **scenes, surfaces, feeds, cues** and configuration in an **embedded SQLite3** database file.
 - Use a **client–server model** so the machine connected to the projector can be controlled from other devices.
 
@@ -29,7 +29,7 @@ The project is a C++-centric monorepo with four main components:
   - Talks to the Renderer via a local **control protocol** (JSON over TCP in v0).
 
 - **`/renderer` – Renderer**
-  - C++ application using **openFrameworks**, `ofxPiMapper`, `ofxMidi`, `ofxFft`.
+  - C++ application using **openFrameworks** (optional `ofxMidi` addon).
   - Runs on the machine that is physically connected to the **projector**.
   - Receives commands from the server and renders scenes in real time.
 
@@ -45,6 +45,14 @@ Assets (images, video files, etc.) are stored on the filesystem (e.g. `./data/as
 - Domain classes for IDs/enums plus Feed, Surface, Scene, and Cue.
 - JSON serialization/deserialization for the main entities and helper types.
 - Validation helpers to confirm references between surfaces, feeds, scenes, and cues.
+
+---
+
+## Planned features
+
+- **FFT analysis** to drive visual modulation from audio.
+- **LFO modulation** for time-based parameter animation.
+- **Optional ofxPiMapper integration** for advanced surface mapping workflows.
 
 ---
 
@@ -162,27 +170,29 @@ curl http://localhost:8080/scenes
 
 Two long-running processes work together: the **server** (`lumi_server`) and the **renderer** (`renderer_default`).
 
-- **Default ports**: HTTP API on **8080**; renderer TCP control on **5050**.
-- **Start the renderer** (in a separate terminal):
-
-  ```bash
-  ./build/renderer/renderer_default --port 5050
-  ```
-
-- **Start the server** and point it at the renderer:
+- **Default ports**: HTTP API on **8080**; renderer connection port on **5050**.
+- **Start the server** (listens for renderer connections):
 
   ```bash
   ./build/server/lumi_server \
     --db ./data/db/projection.db \
     --port 8080 \
-    --renderer-host 127.0.0.1 \
     --renderer-port 5050
+  ```
+
+- **Start the renderer** (in a separate terminal, connects to the server):
+
+  ```bash
+  ./build/renderer/renderer_default \
+    --server-host 127.0.0.1 \
+    --server-port 5050 \
+    --name renderer-main
   ```
 
 Example renderer control calls:
 
 ```bash
-# Ping the renderer (server sends hello/ack handshake)
+# List connected renderers
 curl -X POST http://localhost:8080/renderer/ping
 
 # Load a scene that already exists in the server DB
@@ -191,7 +201,7 @@ curl -X POST http://localhost:8080/renderer/loadScene \
   -d '{"sceneId":"1"}'
 ```
 
-For now, the renderer displays a simple visual and shows the last `sceneId` it was instructed to load via the control protocol.
+The renderer draws video feeds mapped to surfaces and overlays status text (last command, scene, and errors).
 
 ### Example(two videos + MIDI/audio)
 
@@ -204,18 +214,20 @@ Follow this minimal recipe to see the full end-to-end chain (server + renderer +
 
 2. **Prepare demo assets** – place two small MP4 clips at `./data/assets/clipA.mp4` and `./data/assets/clipB.mp4`.
 
-3. **Start the renderer** (listens for control protocol commands on TCP port 5050 by default):
-   ```bash
-   ./build/renderer/renderer_default --port 5050
-   ```
-
-4. **Start the server** (HTTP API on 8080; configured to talk to the renderer at 127.0.0.1:5050):
+3. **Start the server** (HTTP API on 8080; listens for renderer connections on 5050):
    ```bash
    ./build/server/lumi_server \
      --db ./data/db/projection.db \
      --port 8080 \
-     --renderer-host 127.0.0.1 \
      --renderer-port 5050
+   ```
+
+4. **Start the renderer** (connects to the server):
+   ```bash
+   ./build/renderer/renderer_default \
+     --server-host 127.0.0.1 \
+     --server-port 5050 \
+     --name renderer-main
    ```
 
 5. **Seed feeds and a scene (two ways):**
@@ -243,9 +255,9 @@ Follow this minimal recipe to see the full end-to-end chain (server + renderer +
      The JSON response includes the created feed and scene IDs.
      Note: cpp-httplib requires a `Content-Length` header for POST; `-d ''` adds an explicit empty body.
 
-7. **Verbose logging (optional)**
-   - Server: add `--verbose` to the args (e.g., `SERVER_ARGS="--verbose" ./scripts/mapper.sh start`).
-   - Renderer: start with `--verbose` (e.g., `RENDERER_ARGS="--verbose" ./scripts/mapper.sh start`).
+6. **Verbose logging (optional)**
+   - Server: add `--verbose` to the args (e.g., `SERVER_ARGS="--verbose" ./scripts/server.sh start`).
+   - Renderer: start with `--verbose` (e.g., `./scripts/renderer.sh --verbose`).
    - Verbose mode prints request handling, DB actions, renderer sends/receives, and scene load info.
 
 ### Quick renderer window sanity check
@@ -253,8 +265,8 @@ Follow this minimal recipe to see the full end-to-end chain (server + renderer +
 Run a minimal foreground app that opens a window and draws text (useful to confirm the renderer can show a window before testing video). Requires a local openFrameworks install; configure CMake with it:
 
 ```bash
-cmake -S . -B build -DUSE_OPENFRAMEWORKS=ON -DOPENFRAMEWORKS_DIR=/Users/aweijnitz/openFrameworks/of_v0.12.1_osx_release
-cmake --build build
+cmake -S . -B build -DOPENFRAMEWORKS_DIR=/Users/aweijnitz/openFrameworks/of_v0.12.1_osx_release
+cmake --build build --target renderer_hello
 ```
 
 ```bash
@@ -263,12 +275,12 @@ cmake --build build
 
 Omit `--quit-after` to leave the window open and close it manually. The app supports `--message "<text>"` and `--verbose`.
 
-Note: you can also build server+renderer in one step with openFrameworks via `./scripts/build_all.sh --with-of` (set `OPENFRAMEWORKS_DIR` if different from the default).
+Note: `./scripts/build_all.sh` configures the renderer with `OPENFRAMEWORKS_DIR` (set it if different from the default).
 
-6. **Observe on the projector/render window:**
+7. **Observe on the projector/render window:**
    - Two separate videos should appear, each pinned to its own quad.
    - Turning MIDI CC #1 (a knob) modulates brightness.
-   - Playing audio into the renderer’s input modulates the scale via FFT amplitude.
+   - Playing audio into the renderer’s input modulates the scale via input energy.
 
 ---
 
@@ -295,8 +307,7 @@ Note: you can also build server+renderer in one step with openFrameworks via `./
 /renderer/addons.make...   # or openFrameworks project files
 
 /clients/                  # Client apps (CLI, GUI, etc. in C++)
-/clients/cli/...
-/clients/gui/...
+/clients/commandlineclient/...
 
 /data/                     # Default data dir (for local dev)
 /data/assets/              # Media assets

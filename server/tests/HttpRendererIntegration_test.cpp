@@ -2,7 +2,7 @@
 #include "db/SqliteConnection.h"
 #include "http/HttpServer.h"
 #include "projection/core/RendererProtocol.h"
-#include "renderer/RendererClient.h"
+#include "renderer/RendererRegistry.h"
 #include "repo/FeedRepository.h"
 #include "repo/ProjectRepository.h"
 #include "repo/SceneRepository.h"
@@ -57,19 +57,17 @@ std::unique_ptr<httplib::Client> makeClient(int port) {
     return client;
 }
 
-class FakeRendererServer {
+class FakeRendererClient {
 public:
-    explicit FakeRendererServer(int port) : port_(port) { thread_ = std::thread([this] { run(); }); }
+    FakeRendererClient(std::string name, int port) : name_(std::move(name)), port_(port) {
+        thread_ = std::thread([this] { run(); });
+    }
 
-    ~FakeRendererServer() {
+    ~FakeRendererClient() {
         stop_ = true;
-        if (clientFd_ >= 0) {
-            ::shutdown(clientFd_, SHUT_RDWR);
-            ::close(clientFd_);
-        }
-        if (serverFd_ >= 0) {
-            ::shutdown(serverFd_, SHUT_RDWR);
-            ::close(serverFd_);
+        if (socketFd_ >= 0) {
+            ::shutdown(socketFd_, SHUT_RDWR);
+            ::close(socketFd_);
         }
         if (thread_.joinable()) {
             thread_.join();
@@ -102,8 +100,8 @@ public:
 
 private:
     void run() {
-        serverFd_ = ::socket(AF_INET, SOCK_STREAM, 0);
-        if (serverFd_ < 0) {
+        socketFd_ = ::socket(AF_INET, SOCK_STREAM, 0);
+        if (socketFd_ < 0) {
             return;
         }
 
@@ -112,31 +110,21 @@ private:
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
         addr.sin_port = htons(static_cast<uint16_t>(port_));
 
-        if (::bind(serverFd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
+        if (::connect(socketFd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0) {
             return;
         }
 
-        if (::listen(serverFd_, 1) != 0) {
-            return;
-        }
-
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            ready_ = true;
-        }
-        readyCv_.notify_all();
-
-        sockaddr_in clientAddr{};
-        socklen_t clientLen = sizeof(clientAddr);
-        clientFd_ = ::accept(serverFd_, reinterpret_cast<sockaddr*>(&clientAddr), &clientLen);
-        if (clientFd_ < 0) {
-            return;
-        }
+        core::RendererMessage hello{};
+        hello.type = core::RendererMessageType::Hello;
+        hello.commandId = "cmd-hello";
+        hello.hello = core::HelloMessage{"0.1", "renderer", name_};
+        std::string payload = nlohmann::json(hello).dump() + "\n";
+        ::send(socketFd_, payload.c_str(), payload.size(), 0);
 
         std::string buffer;
         char chunk[256];
         while (!stop_) {
-            ssize_t received = ::recv(clientFd_, chunk, sizeof(chunk), 0);
+            ssize_t received = ::recv(socketFd_, chunk, sizeof(chunk), 0);
             if (received <= 0) {
                 break;
             }
@@ -152,6 +140,15 @@ private:
             auto json = nlohmann::json::parse(line);
             core::RendererMessage message = json.get<core::RendererMessage>();
 
+            if (!ready_) {
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    ready_ = true;
+                }
+                readyCv_.notify_all();
+                continue;
+            }
+
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 messages_.push_back(message);
@@ -163,13 +160,13 @@ private:
             ack.ack = core::AckMessage{message.commandId};
 
             std::string response = nlohmann::json(ack).dump() + "\n";
-            ::send(clientFd_, response.c_str(), response.size(), 0);
+            ::send(socketFd_, response.c_str(), response.size(), 0);
         }
     }
 
+    std::string name_;
     int port_;
-    int serverFd_{-1};
-    int clientFd_{-1};
+    int socketFd_{-1};
     std::thread thread_;
     std::atomic<bool> stop_{false};
 
@@ -203,16 +200,16 @@ struct RendererHttpContext {
     repo::SceneRepository sceneRepo;
     repo::CueRepository cueRepo;
     repo::ProjectRepository projectRepo;
-    std::shared_ptr<renderer::RendererClient> rendererClient;
+    std::shared_ptr<renderer::RendererRegistry> rendererRegistry;
     http::HttpServer httpServer;
 
-    RendererHttpContext(const std::string& dbPath, std::shared_ptr<renderer::RendererClient> client)
+    RendererHttpContext(const std::string& dbPath, std::shared_ptr<renderer::RendererRegistry> registry)
         : feedRepo(connection),
           sceneRepo(connection),
           cueRepo(connection),
           projectRepo(connection),
-          rendererClient(std::move(client)),
-          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, rendererClient) {
+          rendererRegistry(std::move(registry)),
+          httpServer(feedRepo, sceneRepo, cueRepo, projectRepo, rendererRegistry) {
         connection.open(dbPath);
         db::SchemaMigrations::applyMigrations(connection);
     }
@@ -231,46 +228,56 @@ bool waitForServer(httplib::Client& client, http::HttpServer& server) {
     return false;
 }
 
+bool waitForRegistry(renderer::RendererRegistry& registry) {
+    for (int attempt = 0; attempt < 100; ++attempt) {
+        if (registry.port() != 0) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return false;
+}
+
 }  // namespace
 
 TEST_CASE("Renderer ping endpoint talks to renderer", "[http][renderer]") {
     const auto rendererPort = reservePort();
-    FakeRendererServer fakeRenderer(rendererPort);
+    auto registry = std::make_shared<renderer::RendererRegistry>();
+    registry->start(rendererPort);
+    REQUIRE(waitForRegistry(*registry));
+    FakeRendererClient fakeRenderer("renderer-main", rendererPort);
     REQUIRE(fakeRenderer.waitUntilReady());
 
-    auto rendererClient = std::make_shared<renderer::RendererClient>("127.0.0.1", rendererPort);
     const auto httpPort = reservePort();
     const auto dbPath = tempDbPath("renderer_ping.db");
-    RendererHttpContext ctx(dbPath, rendererClient);
+    RendererHttpContext ctx(dbPath, registry);
 
     ServerRunner runner(ctx.httpServer, httpPort);
     auto httpClient = makeClient(httpPort);
     REQUIRE(waitForServer(*httpClient, ctx.httpServer));
 
-    rendererClient->connect();
-
     auto res = httpClient->Post("/renderer/ping", "{}", "application/json");
     REQUIRE(res != nullptr);
     REQUIRE(res->status == 200);
-    REQUIRE(fakeRenderer.waitForMessages(1));
-
-    auto messages = fakeRenderer.messages();
-    REQUIRE(messages.front().type == core::RendererMessageType::Hello);
-    REQUIRE(messages.front().hello.has_value());
-    REQUIRE(messages.front().hello->role == "server");
+    auto payload = nlohmann::json::parse(res->body);
+    REQUIRE(payload.contains("renderers"));
+    REQUIRE(payload["renderers"].is_array());
+    REQUIRE(payload["renderers"][0].get<std::string>() == "renderer-main");
 
     std::filesystem::remove(dbPath);
 }
 
 TEST_CASE("LoadScene endpoint validates and forwards to renderer", "[http][renderer]") {
     const auto rendererPort = reservePort();
-    FakeRendererServer fakeRenderer(rendererPort);
+    auto registry = std::make_shared<renderer::RendererRegistry>();
+    registry->start(rendererPort);
+    REQUIRE(waitForRegistry(*registry));
+    FakeRendererClient fakeRenderer("renderer-main", rendererPort);
     REQUIRE(fakeRenderer.waitUntilReady());
 
-    auto rendererClient = std::make_shared<renderer::RendererClient>("127.0.0.1", rendererPort);
     const auto httpPort = reservePort();
     const auto dbPath = tempDbPath("renderer_load_scene.db");
-    RendererHttpContext ctx(dbPath, rendererClient);
+    RendererHttpContext ctx(dbPath, registry);
 
     core::Feed feedA(core::FeedId{}, "Feed A", core::FeedType::VideoFile, R"({"filePath":"a.mp4"})");
     core::Feed feedB(core::FeedId{}, "Feed B", core::FeedType::VideoFile, R"({"filePath":"b.mp4"})");
@@ -287,8 +294,6 @@ TEST_CASE("LoadScene endpoint validates and forwards to renderer", "[http][rende
     ServerRunner runner(ctx.httpServer, httpPort);
     auto httpClient = makeClient(httpPort);
     REQUIRE(waitForServer(*httpClient, ctx.httpServer));
-
-    rendererClient->connect();
 
     nlohmann::json requestPayload{{"sceneId", scene.getId().value}};
     auto res = httpClient->Post("/renderer/loadScene", requestPayload.dump(), "application/json");

@@ -11,13 +11,18 @@
 
 using projection::core::RendererMessageType;
 
-ofApp::ofApp(int port, bool verbose) : server_(*this, verbose), port_(port), verbose_(verbose) {}
+ofApp::ofApp(std::string host, int port, std::string name, bool verbose)
+    : client_(*this, std::move(host), port, std::move(name), verbose),
+      host_(client_.host()),
+      port_(port),
+      name_(client_.name()),
+      verbose_(verbose) {}
 
 void ofApp::setup() {
   if (verbose_) {
-    std::cerr << "[renderer] starting on port " << port_ << std::endl;
+    std::cerr << "[renderer] connecting to server " << host_ << ":" << port_ << " as " << name_ << std::endl;
   }
-  server_.start(port_);
+  client_.start();
 
 #if PROJECTION_HAS_OFX_MIDI
   midiIn_.openPort(0);
@@ -42,8 +47,8 @@ void ofApp::setup() {
 }
 
 void ofApp::update() {
-  if (!server_.running()) {
-    const std::string serverError = server_.lastError();
+  if (!client_.running()) {
+    const std::string serverError = client_.lastError();
     if (!serverError.empty()) {
       std::lock_guard<std::mutex> lock(stateMutex_);
       lastError_ = serverError;
@@ -92,7 +97,7 @@ void ofApp::draw() {
   std::string sceneId;
   std::string role;
   std::string version;
-  int serverPort = server_.port();
+  int serverPort = port_;
 
   {
     std::lock_guard<std::mutex> lock(stateMutex_);
@@ -185,7 +190,7 @@ void ofApp::draw() {
   ofPopMatrix();
   ofSetColor(255, 255, 255);
 
-  ofDrawBitmapString("Renderer listening on port: " + std::to_string(serverPort), 20, 20);
+  ofDrawBitmapString("Renderer connected to: " + host_ + ":" + std::to_string(serverPort), 20, 20);
   if (!role.empty()) {
     ofDrawBitmapString("Role: " + role + " | Version: " + version, 20, 40);
   }
@@ -226,7 +231,7 @@ void ofApp::exit() {
 #if PROJECTION_HAS_OFX_MIDI
   midiIn_.closePort();
 #endif
-  server_.stop();
+  client_.stop();
 }
 
 void ofApp::handle(const projection::core::RendererMessage& message) {

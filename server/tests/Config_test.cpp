@@ -28,31 +28,28 @@ TEST_CASE("parseServerConfig uses defaults", "[server][config]") {
 
     REQUIRE(config.databasePath == "./data/db/projection.db");
     REQUIRE(config.httpPort == 8080);
-    REQUIRE(config.rendererHost == "127.0.0.1");
     REQUIRE(config.rendererPort == 5050);
 }
 
 TEST_CASE("parseServerConfig accepts overrides", "[server][config]") {
     std::vector<const char*> args{"lumi_server", "--db", "/tmp/projection.db", "--port", "5050",
-                                   "--renderer-host", "192.168.0.10", "--renderer-port", "9090"};
+                                   "--renderer-port", "9090"};
 
     auto config = parseArgs(args);
 
     REQUIRE(config.databasePath == "/tmp/projection.db");
     REQUIRE(config.httpPort == 5050);
-    REQUIRE(config.rendererHost == "192.168.0.10");
     REQUIRE(config.rendererPort == 9090);
 }
 
 TEST_CASE("parseServerConfig accepts inline values", "[server][config]") {
     std::vector<const char*> args{"lumi_server", "--db=/opt/app.db", "--port=9090",
-                                   "--renderer-host=example.com", "--renderer-port=6060"};
+                                   "--renderer-port=6060"};
 
     auto config = parseArgs(args);
 
     REQUIRE(config.databasePath == "/opt/app.db");
     REQUIRE(config.httpPort == 9090);
-    REQUIRE(config.rendererHost == "example.com");
     REQUIRE(config.rendererPort == 6060);
 }
 

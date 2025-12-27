@@ -20,12 +20,12 @@ using nlohmann::json;
 
 HttpServer::HttpServer(repo::FeedRepository& feedRepository, repo::SceneRepository& sceneRepository,
                        repo::CueRepository& cueRepository, repo::ProjectRepository& projectRepository,
-                       std::shared_ptr<renderer::RendererClient> rendererClient, bool verbose)
+                       std::shared_ptr<renderer::RendererRegistry> rendererRegistry, bool verbose)
     : feedRepository_(feedRepository),
       sceneRepository_(sceneRepository),
       cueRepository_(cueRepository),
       projectRepository_(projectRepository),
-      rendererClient_(std::move(rendererClient)),
+      rendererRegistry_(std::move(rendererRegistry)),
       server_(std::make_unique<::httplib::Server>()),
       verbose_(verbose) {
     registerRoutes();
@@ -393,39 +393,27 @@ void HttpServer::registerRoutes() {
     });
 
     auto handleRendererPing = [this](const ::httplib::Request&, ::httplib::Response& res) {
-        if (!rendererClient_) {
-            respondWithError(res, 500, "Renderer client not configured");
+        if (!rendererRegistry_) {
+            respondWithError(res, 500, "Renderer registry not configured");
             return;
         }
 
-        try {
-            core::RendererMessage message{};
-            message.type = core::RendererMessageType::Hello;
-            message.commandId = generateCommandId();
-            message.hello = core::HelloMessage{"0.1", "server"};
-
-            rendererClient_->sendMessage(message);
-            const auto response = rendererClient_->receiveMessage();
-
-            if (response.type == core::RendererMessageType::Ack) {
-                res.status = 200;
-                res.set_content(json({{"status", "ok"}}).dump(), "application/json");
-            } else if (response.type == core::RendererMessageType::Error && response.error) {
-                respondWithError(res, 500, response.error->message);
-            } else {
-                respondWithError(res, 500, "Unexpected response from renderer");
-            }
-        } catch (const std::exception& ex) {
-            respondWithError(res, 500, ex.what());
+        const auto names = rendererRegistry_->rendererNames();
+        if (names.empty()) {
+            respondWithError(res, 503, "No renderers connected");
+            return;
         }
+
+        res.status = 200;
+        res.set_content(json({{"status", "ok"}, {"renderers", names}}).dump(), "application/json");
     };
 
     server_->Post("/renderer/ping", handleRendererPing);
     server_->Get("/renderer/ping", handleRendererPing);
 
     server_->Post("/renderer/loadScene", [this](const ::httplib::Request& req, ::httplib::Response& res) {
-        if (!rendererClient_) {
-            respondWithError(res, 500, "Renderer client not configured");
+        if (!rendererRegistry_) {
+            respondWithError(res, 500, "Renderer registry not configured");
             return;
         }
 
@@ -454,7 +442,16 @@ void HttpServer::registerRoutes() {
                 std::cerr << "[http] Forwarding scene " << sceneId.value << " to renderer with " << feeds.size()
                           << " feeds" << std::endl;
             }
-            rendererClient_->sendLoadSceneDefinition(*scene, feeds);
+            core::RendererMessage message{};
+            message.type = core::RendererMessageType::LoadSceneDefinition;
+            message.commandId = generateCommandId();
+            message.loadSceneDefinition = core::LoadSceneDefinitionMessage{*scene, feeds};
+
+            size_t sentCount = rendererRegistry_->broadcastMessage(message);
+            if (sentCount == 0) {
+                respondWithError(res, 503, "No renderers connected");
+                return;
+            }
             res.status = 200;
             res.set_content(json({{"status", "sent"}}).dump(), "application/json");
         } catch (const json::exception& ex) {
@@ -465,8 +462,8 @@ void HttpServer::registerRoutes() {
     });
 
     server_->Post("/demo/two-video-test", [this](const ::httplib::Request&, ::httplib::Response& res) {
-        if (!rendererClient_) {
-            respondWithError(res, 500, "Renderer client not configured");
+        if (!rendererRegistry_) {
+            respondWithError(res, 500, "Renderer registry not configured");
             return;
         }
 
@@ -532,7 +529,16 @@ void HttpServer::registerRoutes() {
                           << feedA.getId().value << "," << feedB.getId().value << " -> sending to renderer"
                           << std::endl;
             }
-            rendererClient_->sendLoadSceneDefinition(createdScene, rendererFeeds);
+            core::RendererMessage message{};
+            message.type = core::RendererMessageType::LoadSceneDefinition;
+            message.commandId = generateCommandId();
+            message.loadSceneDefinition = core::LoadSceneDefinitionMessage{createdScene, rendererFeeds};
+
+            size_t sentCount = rendererRegistry_->broadcastMessage(message);
+            if (sentCount == 0) {
+                respondWithError(res, 503, "No renderers connected");
+                return;
+            }
 
             json payload{{"sceneId", createdScene.getId().value},
                          {"feedIds", json::array({feedA.getId().value, feedB.getId().value})},

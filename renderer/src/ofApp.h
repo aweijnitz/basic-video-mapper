@@ -15,7 +15,7 @@
 #endif
 
 #include "RenderState.h"
-#include "net/RendererServer.h"
+#include "net/RendererClient.h"
 #include "util/InteractionUtils.h"
 
 class ofApp : public ofBaseApp,
@@ -24,7 +24,7 @@ class ofApp : public ofBaseApp,
 #endif
               public projection::renderer::RendererCommandHandler {
  public:
-  explicit ofApp(int port, bool verbose = false);
+  explicit ofApp(std::string host, int port, std::string name, bool verbose = false);
 
   void setup() override;
   void update() override;
@@ -49,8 +49,10 @@ class ofApp : public ofBaseApp,
   void updateStatusForPlayCue(const projection::core::PlayCueMessage& playCue, const std::string& commandId);
   void processMessage(const projection::core::RendererMessage& message);
 
-  projection::renderer::RendererServer server_;
+  projection::renderer::RendererClient client_;
+  std::string host_;
   int port_;
+  std::string name_;
   bool verbose_{false};
 
   projection::renderer::RenderState renderState_{};

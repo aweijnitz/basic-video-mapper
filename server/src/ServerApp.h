@@ -21,7 +21,7 @@ class HttpServer;
 }
 
 namespace projection::server::renderer {
-class RendererClient;
+class RendererRegistry;
 }
 
 namespace projection::server {
@@ -29,10 +29,8 @@ namespace projection::server {
 struct ServerConfig {
     std::string databasePath;
     int httpPort;
-    std::string rendererHost;
     int rendererPort;
     bool verbose{false};
-    int rendererConnectRetries{30};
 };
 
 class ServerApp {
@@ -52,7 +50,7 @@ private:
     std::unique_ptr<repo::CueRepository> cueRepository_;
     std::unique_ptr<repo::ProjectRepository> projectRepository_;
     std::unique_ptr<http::HttpServer> httpServer_;
-    std::shared_ptr<renderer::RendererClient> rendererClient_;
+    std::shared_ptr<renderer::RendererRegistry> rendererRegistry_;
 };
 
 }  // namespace projection::server
