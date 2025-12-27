@@ -115,6 +115,11 @@ class TestServer {
     return ackMessage_;
   }
 
+  bool waitForAck(std::chrono::milliseconds timeout = std::chrono::milliseconds(1000)) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return ackCv_.wait_for(lock, timeout, [this] { return ackReady_; });
+  }
+
  private:
   void run() {
     sockaddr_in clientAddr{};
@@ -179,7 +184,9 @@ class TestServer {
       {
         std::lock_guard<std::mutex> lock(mutex_);
         ackMessage_ = response;
+        ackReady_ = true;
       }
+      ackCv_.notify_all();
       return;
     }
   }
@@ -189,8 +196,10 @@ class TestServer {
   int port_{0};
   std::thread serverThread_;
   mutable std::mutex mutex_;
+  std::condition_variable ackCv_;
   RendererMessage helloMessage_{};
   RendererMessage ackMessage_{};
+  bool ackReady_{false};
   bool ready_{false};
   int bindError_{0};
 };
@@ -220,6 +229,7 @@ TEST_CASE("RendererClient connects, sends hello, and acknowledges commands", "[r
   REQUIRE(received->loadScene.has_value());
   REQUIRE(received->loadScene->sceneId.value == "scene-1");
 
+  REQUIRE(server.waitForAck());
   auto ack = server.ackMessage();
   REQUIRE(ack.type == RendererMessageType::Ack);
   REQUIRE(ack.commandId == "cmd-load");

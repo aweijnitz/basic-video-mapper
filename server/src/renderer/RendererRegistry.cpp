@@ -41,7 +41,7 @@ projection::core::RendererMessage makeErrorMessage(const std::string& commandId,
 
 }  // namespace
 
-class RendererSession {
+class RendererSession : public std::enable_shared_from_this<RendererSession> {
 public:
     RendererSession(std::string name,
                     int socketFd,
@@ -64,7 +64,8 @@ public:
             return;
         }
         running_ = true;
-        readerThread_ = std::thread([this] { readLoop(); });
+        auto self = shared_from_this();
+        readerThread_ = std::thread([self] { self->readLoop(); });
     }
 
     void stop() {
@@ -75,7 +76,11 @@ public:
             socketFd_ = kInvalidSocket;
         }
         if (readerThread_.joinable()) {
-            readerThread_.join();
+            if (readerThread_.get_id() == std::this_thread::get_id()) {
+                readerThread_.detach();
+            } else {
+                readerThread_.join();
+            }
         }
     }
 

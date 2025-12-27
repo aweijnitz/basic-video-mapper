@@ -35,7 +35,7 @@ class RendererClient {
 
  private:
   void run();
-  void readLoop();
+  void readLoop(std::string buffer);
   void processLine(const std::string& line);
   void sendMessage(const projection::core::RendererMessage& message);
   void sendAck(const std::string& commandId);

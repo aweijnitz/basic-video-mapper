@@ -157,7 +157,7 @@ void RendererClient::run() {
     return;
   }
 
-  readLoop();
+  readLoop(std::move(buffer));
   } catch (const std::exception& ex) {
     std::lock_guard<std::mutex> lock(errorMutex_);
     lastError_ = ex.what();
@@ -165,11 +165,18 @@ void RendererClient::run() {
   }
 }
 
-void RendererClient::readLoop() {
-  std::string buffer;
+void RendererClient::readLoop(std::string buffer) {
   char chunk[256];
 
   while (running_) {
+    auto newlinePos = buffer.find('\n');
+    while (newlinePos != std::string::npos) {
+      std::string line = buffer.substr(0, newlinePos);
+      buffer.erase(0, newlinePos + 1);
+      processLine(line);
+      newlinePos = buffer.find('\n');
+    }
+
     int socketFd = kInvalidSocket;
     {
       std::lock_guard<std::mutex> lock(socketMutex_);
@@ -186,7 +193,7 @@ void RendererClient::readLoop() {
       break;
     }
     buffer.append(chunk, static_cast<size_t>(received));
-    auto newlinePos = buffer.find('\n');
+    newlinePos = buffer.find('\n');
     while (newlinePos != std::string::npos) {
       std::string line = buffer.substr(0, newlinePos);
       buffer.erase(0, newlinePos + 1);
